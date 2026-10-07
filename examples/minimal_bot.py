@@ -10,7 +10,9 @@ Files needed alongside this script (copy from the repo root):
     payment_plugin/   bharatpe.py   qr_generator.py   database.py
 """
 
-import os, logging
+import os, sys, logging
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root on path
+from dotenv import load_dotenv; load_dotenv()   # read .env if present
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 

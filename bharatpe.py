@@ -22,8 +22,14 @@ class CredentialsExpiredError(Exception):
     """Raised when BharatPe rejects the token/cookie (session expired)."""
 
 
+def _key(cfg):
+    # ponytail: key creds by the config object's identity, not merchant_id —
+    # merchant_id is empty until /login auto-discovers it, so it can't be the key.
+    return id(cfg)
+
+
 def _get_live(cfg) -> dict:
-    return _live.setdefault(cfg.merchant_id, {"token": cfg.api_token, "cookie": cfg.api_cookie})
+    return _live.setdefault(_key(cfg), {"token": cfg.api_token, "cookie": cfg.api_cookie})
 
 
 def update_credentials(token: str, cookie: str, cfg) -> None:
@@ -39,15 +45,18 @@ def _build_headers(cfg) -> dict:
 
 
 def _parse_response(resp: requests.Response) -> list:
+    # Transactions API uses status+message:"SUCCESS"; some endpoints use success:true.
     data = resp.json()
-    if data.get("status") and data.get("message") == "SUCCESS":
+    if (data.get("status") and data.get("message") == "SUCCESS") or data.get("success"):
         return data.get("data", {}).get("transactions", [])
     msg = data.get("message", "UNKNOWN")
-    logger.warning(f"BharatPe API error: {msg}")
+    logger.warning(f"BharatPe API error: {msg} (HTTP {resp.status_code})")
     if msg in ("UNAUTHORIZED", "UNAUTHENTICATED", "TOKEN_EXPIRED", "SESSION_EXPIRED") \
             or resp.status_code in (401, 403):
         raise CredentialsExpiredError(msg)
-    return []
+    # ponytail: any other non-SUCCESS (incl. "Not Found", 404) is a real failure —
+    # raise so check_credentials can't report a dead endpoint as healthy.
+    raise RuntimeError(f"BharatPe transactions call failed: {msg} (HTTP {resp.status_code})")
 
 
 def fetch_transactions(cfg) -> list:
@@ -55,8 +64,9 @@ def fetch_transactions(cfg) -> list:
     the token/cookie is rejected; requests.RequestException on network errors."""
     now = datetime.now(IST)
     params = {"module": "PAYMENT_QR",
-              "sDate": (now - timedelta(days=2)).strftime("%Y-%m-%d"),
-              "eDate": (now + timedelta(days=1)).strftime("%Y-%m-%d")}
+              "sDate": int((now - timedelta(days=2)).timestamp() * 1000),   # epoch ms
+              "eDate": int((now + timedelta(days=1)).timestamp() * 1000),
+              "pageSize": 50, "pageCount": 0, "isFromOtDashboard": 1}
     if cfg.merchant_id:                      # dashboard sends merchantId only when known
         params["merchantId"] = cfg.merchant_id
     resp = requests.get(cfg.bharatpe_api, params=params, headers=_build_headers(cfg), timeout=15)
@@ -111,7 +121,7 @@ def start_login(mobile: str, cfg) -> str:
     if not d.get("success") or "uuid" not in d.get("data", {}):
         raise RuntimeError(f"requestotp failed: {d.get('message', d)}")
     s.csrf = csrf                       # ponytail: stash csrf on the session, saves a dict
-    _sessions[cfg.merchant_id] = s
+    _sessions[_key(cfg)] = s
     return d["data"]["uuid"]
 
 
@@ -119,7 +129,7 @@ def complete_login(mobile: str, uuid: str, otp: str, cfg) -> str:
     """POST verifyotp, store accessToken + login cookies as the active session."""
     if not re.fullmatch(r"\d{4,6}", otp):
         raise ValueError("otp must be 4-6 digits")
-    s = _sessions.get(cfg.merchant_id)
+    s = _sessions.get(_key(cfg))
     if s is None:
         raise RuntimeError("no login in progress — call start_login first")
     r = s.post(cfg.auth_host + "/v1/api/user/verifyotp",
@@ -131,5 +141,23 @@ def complete_login(mobile: str, uuid: str, otp: str, cfg) -> str:
     # ponytail: rebuild the Cookie header from the jar — works because BharatPe
     # only needs XSRF-TOKEN + bharatpe_session, no path/domain nuance.
     cookie = "; ".join(f"{c.name}={c.value}" for c in s.cookies)
-    update_credentials(d["data"]["accessToken"], cookie, cfg)
-    return d["data"]["accessToken"]
+    token = d["data"]["accessToken"]
+    update_credentials(token, cookie, cfg)
+    if not cfg.merchant_id:                  # auto-discover — BharatPe hides it in the UI
+        try:
+            cfg.merchant_id = fetch_merchant_id(cfg)
+            logger.info(f"Discovered merchant_id {cfg.merchant_id} via getmerchantinfo")
+        except Exception as e:
+            logger.warning(f"could not auto-fetch merchant_id: {e}")
+    return token
+
+
+def fetch_merchant_id(cfg) -> str:
+    """GET getmerchantinfo (token header) and return the account's merchantId.
+    Lets users skip MERCHANT_ID entirely — BharatPe never shows it in the UI."""
+    r = requests.get("https://api-merchant.bharatpe.in/merchant/v3/getmerchantinfo",
+                     headers={"token": _get_live(cfg)["token"], "User-Agent": cfg.user_agent}, timeout=15)
+    mid = r.json().get("data", {}).get("merchantId")
+    if not mid:
+        raise RuntimeError("merchantId missing from getmerchantinfo response")
+    return str(mid)

@@ -35,8 +35,8 @@ class PaymentConfig:
     merchant_id: str = ""
 
     # ── BharatPe hosts (configurable — the domain changed recently) ─────────
-    auth_host: str = "https://enterprise.bharatpe.in"
-    api_host: str = "https://api-enterprise.bharatpe.in"
+    auth_host: str = "https://enterprise.bharatpe.in"          # login/OTP
+    api_host: str = "https://payments-tesseract.bharatpe.in"   # transactions
     bharatpe_api: str = ""  # set from api_host in __post_init__ unless overridden
     user_agent: str = (
         "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "

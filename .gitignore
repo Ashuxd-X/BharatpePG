@@ -56,3 +56,6 @@ captures/
 # Local session store (contains live BharatPe token/cookies)
 session.json
 *.session.json
+
+# HAR captures — contain live session tokens/cookies, never commit
+*.har
