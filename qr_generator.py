@@ -12,7 +12,7 @@ def make_qr(amount: float, order_id: str, cfg) -> io.BytesIO:
     """Generate a branded UPI QR code PNG.
 
     Args:
-        amount:   Exact payment amount (session amount with micro-delta).
+        amount:   Exact payment amount.
         order_id: Unique order identifier to embed in the UPI note field.
         cfg:      PaymentConfig — provides upi_id and merchant_name.
 

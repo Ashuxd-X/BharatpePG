@@ -1,34 +1,22 @@
 # bharatpe-payment-plugin
 
-A drop-in UPI payment system for any [python-telegram-bot](https://python-telegram-bot.org/) project, powered by the [BharatPe](https://bharatpe.com/) merchant API.
+Drop-in UPI payments for any [python-telegram-bot](https://docs.python-telegram-bot.org) project, backed by your own BharatPe merchant account. A user pays the exact amount by scanning a QR, then sends you the 12-digit UTR; the bot verifies it against your BharatPe transactions and marks the order paid.
 
-> **Built for India.** Works with GPay, PhonePe, Paytm, BHIM, and all UPI apps.
+> **Honest caveat — read this first.** This talks to **unofficial / private BharatPe endpoints** (the ones the enterprise dashboard uses). There is no public BharatPe API. Endpoints can change or break without notice — they already changed domains once, which is why every host here is **configurable, not hard-coded**. Use it only with **your own KYC-verified merchant account**. You are responsible for complying with BharatPe's terms.
 
----
+## What you get
 
-## Features
+- `/pay [amount]` — amount picker → exact-amount UPI QR → user submits UTR → verified.
+- `/login` — admin authenticates the BharatPe session with mobile + OTP (OTP typed manually, never auto-read).
+- `/admin` — recent payments + search by order ID / UTR.
+- Zero database setup by default (stdlib sqlite file). Postgres is an opt-in extra.
 
-- **One-command payment** — `/pay <amount>` generates a branded QR code in chat
-- **Auto-verification** — polls BharatPe every 4 seconds, confirms the moment money arrives
-- **Unique micro-amounts** — adds ₹0.01 increments to avoid collision when multiple users pay simultaneously
-- **Admin dashboard** — recent payments, member list, search by UTR/order, block/unblock, broadcast
-- **Live credential renewal** — `/renewcredentials` updates the BharatPe session without restarting the bot
-- **Credential expiry alerts** — admins get a Telegram message the moment the API token expires
-- **Rate limiting** — configurable per-user hourly and concurrent payment limits
-- **PostgreSQL-backed** — auto-creates tables, runs idempotent migrations on startup
-
----
-
-## Quick Start
-
-### 1. Install
+## 5-minute quickstart
 
 ```bash
-pip install bharatpe-payment-plugin
-# or copy the payment_plugin/ folder directly into your project
+pip install python-telegram-bot requests pillow qrcode[pil]
+# copy these into your project: payment_plugin/  bharatpe.py  qr_generator.py  database.py
 ```
-
-### 2. Integrate
 
 ```python
 from telegram.ext import Application
@@ -39,150 +27,75 @@ cfg = PaymentConfig(
     upi_id="yourname@yesbankltd",
     merchant_name="My Store",
     merchant_id="12345678",
-    api_token="<token from BharatPe DevTools>",
-    api_cookie="<Cookie header from BharatPe DevTools>",
-    db_url="postgresql://user:pass@localhost/mybot",
-    admin_ids=[123456789],   # your Telegram user ID
+    admin_ids=[123456789],       # your Telegram user ID(s)
 )
 
-app = Application.builder().token("YOUR_BOT_TOKEN").build()
-
-init_db(cfg.db_url)
+app = Application.builder().token("BOT_TOKEN").build()
+init_db(cfg)                     # sqlite file store — no DB server needed
 register_payment_handlers(app, cfg)
-register_admin_handlers(app, cfg)   # optional — /admin, /renewcredentials
-
+register_admin_handlers(app, cfg)   # optional: /admin + /login
 app.run_polling()
 ```
 
-That's it. Your bot now accepts UPI payments.
+A runnable version with `/start` + `nav:home` is in [`examples/minimal_bot.py`](examples/minimal_bot.py).
 
----
+## Configuration
 
-## How It Works
+`PaymentConfig` is a dataclass — pass values directly or read them from env vars. Only the first three are required.
 
-```
-User: /pay 500
-Bot:  [sends QR for ₹500.03]     ← unique micro-amount avoids collisions
-      [polls BharatPe every 4s]
-User: [scans + pays ₹500.03 on GPay]
-Bot:  ✅ Payment Verified! ₹500.03 — UTR: 426...
-```
+| Field | Default | Meaning |
+|---|---|---|
+| `upi_id` | — (required) | Your UPI VPA, encoded into the QR |
+| `merchant_name` | — (required) | Shown on the QR card |
+| `merchant_id` | — (required) | BharatPe merchant ID (transactions query) |
+| `admin_ids` | `[]` | Telegram user IDs allowed to run `/login` and `/admin` |
+| `auth_host` | `https://enterprise.bharatpe.in` | Login/OTP host |
+| `api_host` | `https://api-enterprise.bharatpe.in` | Transactions API host |
+| `bharatpe_api` | derived from `api_host` | Full transactions URL (override only if needed) |
+| `db_url` | `""` | Set to a `postgres://…` DSN to use Postgres instead of sqlite |
+| `db_path` | `payments.db` | sqlite file path (used when `db_url` is empty) |
+| `utr_window_sec` | `1800` | UTR recency guard — reject UTRs older than this |
+| `min_amount` / `max_amount` | `1` / `50000` | Allowed payment range (₹) |
+| `user_agent` | mobile Chrome UA | Sent on BharatPe requests |
 
-1. User sends `/pay <amount>` (or picks from the keyboard)
-2. Bot assigns a unique session amount (₹500 + ₹0.01–₹0.99 to avoid collision)
-3. Bot generates a branded QR code and sends it to the chat
-4. Bot polls the BharatPe transaction API every 4 seconds
-5. When a matching transaction appears → success message with UTR and payer info
-6. If 5 minutes pass with no match → QR expires, amount is freed for reuse
+## The `/login` OTP flow
 
----
+BharatPe login is phone number + OTP (no password). An admin runs it once:
 
-## PaymentConfig Reference
+1. Admin sends `/login` → bot asks for the 10-digit mobile.
+2. Bot calls BharatPe `requestotp`; BharatPe texts the OTP to the admin's phone.
+3. Admin types the OTP into the chat → bot calls `verifyotp` and stores the `accessToken` + session cookies in memory.
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `upi_id` | Yes | — | Merchant UPI address (e.g. `name@yesbankltd`) |
-| `merchant_name` | Yes | — | Display name on QR card |
-| `merchant_id` | Yes | — | BharatPe merchant ID |
-| `api_token` | Yes | — | BharatPe session token (from DevTools) |
-| `api_cookie` | Yes | — | BharatPe Cookie header (from DevTools) |
-| `db_url` | Yes | — | PostgreSQL connection string |
-| `admin_ids` | No | `[]` | Telegram user IDs with admin access |
-| `timeout` | No | `300` | Seconds before QR expires |
-| `poll_interval` | No | `4` | Seconds between API checks |
-| `min_amount` | No | `1.0` | Minimum payment in ₹ |
-| `max_amount` | No | `50000.0` | Maximum payment in ₹ |
-| `max_per_hour` | No | `10` | Max payments per user per hour |
-| `max_concurrent` | No | `3` | Max simultaneous pending payments per user |
+The OTP is **entered manually every time**. The bot never reads SMS. If the session later expires, just run `/login` again.
 
----
+## The payment + verify flow
 
-## Getting BharatPe Credentials
+1. User sends `/pay 500` (or taps an amount) → bot creates an order and shows a QR for **exactly ₹500**.
+2. User pays with any UPI app and copies the **12-digit UTR** (bank reference number).
+3. User sends the UTR to the bot. Before marking the order paid, the UTR must clear five guards:
+   1. **exists** in your BharatPe transactions,
+   2. type `PAYMENT_RECV` and status `SUCCESS`,
+   3. amount matches the order,
+   4. not already used by another order (`utr` column is `UNIQUE` — reuse is rejected at the storage layer),
+   5. recent, within `utr_window_sec`.
 
-BharatPe does not offer a public developer API — credentials are browser session tokens:
+   The submitted value is validated as 12 digits before any lookup.
 
-1. Log in to [dashboard.bharatpe.com](https://dashboard.bharatpe.com)
-2. Open **DevTools** → **Network** tab → reload the page
-3. Click any request to `payments-tesseract.bharatpe.in`
-4. Copy the `token` request header → `api_token`
-5. Copy the full `Cookie` request header → `api_cookie`
-6. Your `merchant_id` is in the URL of those requests
+## Security
 
-These credentials **expire every few days**. Use `/renewcredentials` in Telegram to refresh them without restarting.
+- **Never commit the Burp capture or any session.** The raw capture contains a live token/cookies; it is gitignored and must stay out of the repo.
+- Credentials come from the live `/login` session (or `api_token`/`api_cookie` seeds you inject) — not from source.
+- The `utr UNIQUE` constraint makes "one UTR, one order" a storage invariant, so a copied UTR can't be replayed against a second order.
+- `/login` and `/admin` are locked to `admin_ids`.
 
----
+## Deploy — Railway / Render / VPS
 
-## Bot Commands
+Default is zero-DB: the sqlite file lives next to the bot, so a plain worker/process just works.
 
-### User commands
-| Command | Description |
-|---------|-------------|
-| `/pay <amount>` | Start a payment (shows amount picker if no amount given) |
-
-### Admin commands (requires `admin_ids`)
-| Command | Description |
-|---------|-------------|
-| `/admin` | Open dashboard — stats, recent payments, members |
-| `/renewcredentials` | Update BharatPe token + cookie without restart |
-| `/cancel` | Abort any in-progress admin input flow |
-
----
-
-## Database Tables
-
-Auto-created by `init_db(db_url)`:
-
-| Table | Columns |
-|-------|---------|
-| `users` | `chat_id`, `username`, `total_paid`, `payment_count`, `is_blocked`, ... |
-| `payments` | `order_id`, `user_id` (no FK), `session_amount`, `status`, `utr`, ... |
-| `activity_log` | `user_id`, `action`, `detail`, `created_at` |
-
-Migrations are **idempotent** — safe to run on every startup.
-
----
-
-## Multiple Merchants / Bots
-
-Multiple bots using the same BharatPe merchant must share one database to avoid micro-amount collisions:
-
-```python
-# Bot A
-cfg_a = PaymentConfig(merchant_id="123", db_url="postgresql://same_db", ...)
-
-# Bot B
-cfg_b = PaymentConfig(merchant_id="123", db_url="postgresql://same_db", ...)
-```
-
-Different merchants can use separate databases.
-
----
-
-## nav:home Callback
-
-The post-payment keyboard includes a **🏠 Menu** button that emits `nav:home`. The plugin does not handle this — add your own handler:
-
-```python
-from telegram.ext import CallbackQueryHandler
-
-async def on_home(update, ctx):
-    q = update.callback_query
-    await q.answer()
-    await q.message.reply_text("Main menu:", reply_markup=your_main_kb())
-
-app.add_handler(CallbackQueryHandler(on_home, pattern=r"^nav:home$"))
-```
-
----
-
-## Full Example Bot
-
-See the [Pay0 bot](https://github.com/pay0bot/pay0) for a complete working bot built on this plugin, including `/start`, history, stats, and the admin panel.
-
----
+- **Railway / Render:** add a service running `python examples/minimal_bot.py`, set `BOT_TOKEN`, `UPI_ID`, `MERCHANT_NAME`, `MERCHANT_ID`, `ADMIN_IDS`. For sqlite to survive restarts, mount a persistent volume and point `DB_PATH` at it.
+- **VPS:** run under `systemd` or `pm2`; same env vars.
+- **Postgres (opt-in):** `pip install "bharatpe-payment-plugin[postgres]"` (or `psycopg2-binary`) and set `DATABASE_URL=postgres://…`. The same schema (`utr UNIQUE`) is created automatically — recommended if you run multiple processes.
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-Contributions welcome. Please open an issue before submitting large PRs.

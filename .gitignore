@@ -47,3 +47,12 @@ replit.nix
 # OS
 .DS_Store
 Thumbs.db
+
+# Burp capture — contains live credentials, never commit (delete after use)
+bharatpe
+*.burp
+captures/
+
+# Local session store (contains live BharatPe token/cookies)
+session.json
+*.session.json

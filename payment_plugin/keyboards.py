@@ -25,13 +25,6 @@ def amounts_kb():
     ])
 
 
-def waiting_kb():
-    """Cancel button shown while a QR is waiting for payment."""
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ Cancel Payment", callback_data="pay:cancel")],
-    ])
-
-
 def result_kb():
     """Pay Again / Menu buttons shown after a payment completes or expires."""
     return InlineKeyboardMarkup([
@@ -43,17 +36,10 @@ def result_kb():
 def admin_kb():
     """Top-level admin panel keyboard."""
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📊 Dashboard", callback_data="admin:dash")],
         [
             InlineKeyboardButton("💰 Recent", callback_data="admin:recent"),
-            InlineKeyboardButton("👥 Members", callback_data="admin:users"),
+            InlineKeyboardButton("🔍 Search", callback_data="admin:search"),
         ],
-        [InlineKeyboardButton("🔍 Search", callback_data="admin:search")],
-        [
-            InlineKeyboardButton("🚫 Block", callback_data="admin:block"),
-            InlineKeyboardButton("✅ Unblock", callback_data="admin:unblock"),
-        ],
-        [InlineKeyboardButton("📢 Broadcast", callback_data="admin:broadcast")],
         [InlineKeyboardButton("🏠 Menu", callback_data="nav:home")],
     ])
 

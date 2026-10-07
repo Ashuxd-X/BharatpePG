@@ -9,17 +9,16 @@ Quick start::
         upi_id="yourname@bank",
         merchant_name="My Store",
         merchant_id="12345678",
-        api_token="...",
-        api_cookie="...",
-        db_url="postgresql://...",
         admin_ids=[123456789],
     )
 
-    init_db(cfg.db_url)
+    init_db(cfg)                        # sqlite file store by default — no DB setup needed
     register_payment_handlers(app, cfg)
-    register_admin_handlers(app, cfg)   # optional — adds /admin dashboard
+    register_admin_handlers(app, cfg)   # optional — adds /admin + /login (OTP)
 
-See INTEGRATION.md for the full guide.
+Admin runs /login (mobile → OTP) once to authenticate the merchant session.
+Users /pay, scan the exact-amount QR, then send the 12-digit UTR to verify.
+See README.md for the full guide.
 """
 
 from .config import PaymentConfig
