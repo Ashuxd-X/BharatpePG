@@ -192,6 +192,60 @@ The BharatPe session expires periodically (it's a login session, not an API key)
 
 ---
 
+## 🛠️ Managing your bot
+
+Everything you need after deploy is done **from inside Telegram, as an admin** — no server access, no BharatPe dashboard. Open `/admin` (admins only).
+
+### Admin controls
+
+| Button / command | What it does |
+|---|---|
+| `/login` · 🔑 **Login** | Connect BharatPe: send mobile → enter the OTP from your phone. Merchant ID is auto-discovered. |
+| 🔌 **Status** | Live connection check — 🟢 logged in · 🔴 not logged in / expired · 🟡 BharatPe unreachable. |
+| 💰 **Recent** | Last 10 orders with status + UTR. |
+| 🔍 **Search** | Look up a payment by order ID or UTR. |
+| `/cancel` | Abort an in-progress login. |
+
+### Automatic vs. manual
+
+| ✅ Automatic (you do nothing) | 🙋 Manual (you act) |
+|---|---|
+| Verifying UTRs when users submit them | **One-time `/login`** per session (OTP from your phone) |
+| Running `on_verified` to deliver goods/credits | **Re-login** when the session expires — you're DMed first |
+| Detecting session expiry (background monitor) | — |
+| Pausing payments during an outage | — |
+| Queuing + delivering payments after recovery | — |
+| Restoring the session after a redeploy | — |
+
+> You're alerted **before** customers are affected: the monitor DMs admins the moment the session expires, so you re-login in ~10 seconds and nothing breaks downstream.
+
+### ⚠️ Keep your session across redeploys — use durable storage
+
+The session is saved to your storage so a redeploy **doesn't** force a re-login. But that only holds if the storage itself survives:
+
+- **VPS** — the default SQLite file persists on disk → nothing to do. ✅
+- **Railway / Render** — the default disk is **wiped on redeploy**, taking the SQLite file (and your session + payment records) with it. Use one of:
+  - a **mounted volume** with `DB_PATH` pointing into it, **or**
+  - **Postgres** via `DATABASE_URL`.
+
+  Without durable storage you'll have to `/login` again after every deploy, and payment history resets.
+
+### Already have your own `/admin`?
+
+The plugin registers `/admin`, `/login`, `/cancel` in the **default handler group**. Within a group, python-telegram-bot runs **only the first** handler that matches a command — so you can't have two live `/admin` commands. Options:
+
+1. **Don't call `register_admin_handlers`** — instead build your own panel and reuse the plugin's building blocks directly:
+   ```python
+   from payment_plugin.bharatpe import start_login, complete_login, check_credentials, has_session
+   from payment_plugin.database import admin_recent, admin_search
+   ```
+   Wire these into your existing `/admin` however you like.
+2. **Keep both, under different names** — call `register_admin_handlers` and let the plugin own `/admin`, while your own panel lives on a different command (e.g. `/panel`).
+
+Either way, the **payment flow (`register_payment_handlers`) is independent** of the admin panel — you can always ship `/pay` + `on_verified` without the plugin's `/admin` at all.
+
+---
+
 ## 🔧 Configuration
 
 `PaymentConfig` is a dataclass — pass values directly or from env. Only `upi_id` and `merchant_name` are required.
