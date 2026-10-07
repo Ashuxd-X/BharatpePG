@@ -16,9 +16,9 @@ Drop-in UPI payments for any [python-telegram-bot](https://docs.python-telegram-
 Install straight from GitHub — it's a single importable package, nothing to copy:
 
 ```bash
-pip install git+https://github.com/Teamhapp/bharatpe-payment-plugin
+pip install git+https://github.com/AshuXD-X/bharatpe-payment-plugin
 # Postgres instead of the default sqlite file store:
-# pip install "bharatpe-payment-plugin[postgres] @ git+https://github.com/Teamhapp/bharatpe-payment-plugin"
+# pip install "bharatpe-payment-plugin[postgres] @ git+https://github.com/AshuXD-X/bharatpe-payment-plugin"
 ```
 
 Add it to any existing `python-telegram-bot` app with three calls — your own

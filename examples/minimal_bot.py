@@ -4,7 +4,7 @@ Set the env vars below and run. The bot takes UPI payments via /pay (scan the
 exact-amount QR, then send the 12-digit UTR). Admins run /login once to
 authenticate the BharatPe merchant session; /admin shows recent payments.
 
-    pip install git+https://github.com/Teamhapp/bharatpe-payment-plugin python-dotenv
+    pip install git+https://github.com/AshuXD-X/bharatpe-payment-plugin python-dotenv
 """
 
 import os, sys, logging

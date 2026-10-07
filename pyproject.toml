@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bharatpe-payment-plugin"
+authors = [{ name = "AshuXD-X" }]
 version = "0.1.0"
 description = "Drop-in BharatPe UPI payment plugin for python-telegram-bot"
 readme = "README.md"
@@ -32,9 +33,9 @@ dependencies = [
 postgres = ["psycopg2-binary>=2.9"]
 
 [project.urls]
-Homepage = "https://github.com/Teamhapp/bharatpe-payment-plugin"
-Documentation = "https://github.com/Teamhapp/bharatpe-payment-plugin/blob/main/README.md"
-"Bug Tracker" = "https://github.com/Teamhapp/bharatpe-payment-plugin/issues"
+Homepage = "https://github.com/AshuXD-X/bharatpe-payment-plugin"
+Documentation = "https://github.com/AshuXD-X/bharatpe-payment-plugin/blob/main/README.md"
+"Bug Tracker" = "https://github.com/AshuXD-X/bharatpe-payment-plugin/issues"
 
 [tool.setuptools.packages.find]
 include = ["payment_plugin*"]
