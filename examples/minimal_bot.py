@@ -13,7 +13,10 @@ from dotenv import load_dotenv; load_dotenv()   # read .env if present
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-from payment_plugin import PaymentConfig, init_db, register_payment_handlers, register_admin_handlers
+from payment_plugin import (
+    PaymentConfig, init_db, register_payment_handlers,
+    register_admin_handlers, start_session_monitor,
+)
 from payment_plugin.keyboards import menu_kb, is_admin
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s — %(message)s", level=logging.INFO)
@@ -51,6 +54,7 @@ def main():
     app.add_handler(CommandHandler("start", cmd_start))
     register_payment_handlers(app, cfg)
     register_admin_handlers(app, cfg)
+    start_session_monitor(app, cfg)       # background session-health check + admin alert
     app.add_handler(CallbackQueryHandler(on_home, pattern=r"^nav:home$"))  # register AFTER plugin handlers
     print(f"Bot starting — merchant: {cfg.merchant_name} ({cfg.merchant_id})")
     app.run_polling()

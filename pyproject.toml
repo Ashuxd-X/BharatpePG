@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Office/Business :: Financial",
 ]
 dependencies = [
-    "python-telegram-bot>=20.0",
+    "python-telegram-bot[job-queue]>=20.0",
     "requests>=2.28",
     "Pillow>=9.0",
     "qrcode[pil]>=7.0",

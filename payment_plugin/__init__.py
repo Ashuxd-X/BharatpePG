@@ -26,10 +26,12 @@ from .config import PaymentConfig
 from .database import init_db
 from .payment import register_payment_handlers
 from .admin import register_admin_handlers
+from .session_monitor import start_session_monitor
 
 __all__ = [
     "PaymentConfig",
     "init_db",
     "register_payment_handlers",
     "register_admin_handlers",
+    "start_session_monitor",
 ]

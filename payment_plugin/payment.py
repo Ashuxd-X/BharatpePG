@@ -85,7 +85,9 @@ def register_payment_handlers(app, cfg: PaymentConfig):
         try:
             match = find_by_utr(utr, pay["amount"], cfg)
         except CredentialsExpiredError:
-            await message.reply_text("⚠️ BharatPe session expired — ask the admin to run /login, then resend.")
+            # Neutral to the user — the background monitor already alerts the admin.
+            await message.reply_text("⏳ Verifying your payment — this can take a minute. "
+                                     "Please resend the UTR shortly if you don't get a confirmation.")
             return
         except Exception as e:
             log.error(f"UTR lookup failed: {e}")

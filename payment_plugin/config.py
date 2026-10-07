@@ -53,7 +53,8 @@ class PaymentConfig:
     db_path: str = "payments.db"
 
     # ── Payment behaviour ──────────────────────────────────────────────────
-    utr_window_sec: int = 1800  # UTR recency guard (default: 30 min)
+    utr_window_sec: int = 1800     # UTR recency guard (default: 30 min)
+    session_check_sec: int = 300   # background session-health poll (default: 5 min)
     min_amount: float = 1.0
     max_amount: float = 50000.0
     timeout: int = 300          # QR caption hint only (no polling anymore)

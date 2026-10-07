@@ -6,6 +6,7 @@ from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, C
 
 from .database import admin_recent, admin_search
 from .bharatpe import check_credentials, start_login, complete_login
+from .session_monitor import session_restored
 from .config import PaymentConfig
 from .keyboards import admin_kb, back_admin_kb, is_admin, BTN_ADMIN, BTN_LOGIN
 
@@ -82,6 +83,7 @@ def register_admin_handlers(app, cfg: PaymentConfig):
                 complete_login(ctx.user_data.pop("login_mobile"), ctx.user_data.pop("login_uuid"), text, cfg)
             except Exception as e:
                 await update.message.reply_text(f"❌ Login failed: {e}"); return
+            session_restored()      # clear the expiry alert so the next outage warns again
             state = {"ok": "🟢 Connected", "expired": "🔴 Rejected", "unknown": "🟡 Unreachable"}[check_credentials(cfg)]
             await update.message.reply_text(f"✅ Logged in. BharatPe API: {state}",
                                             reply_markup=back_admin_kb())
