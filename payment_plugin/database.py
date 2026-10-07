@@ -50,9 +50,14 @@ def init_db(cfg):
            "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
     if _backend == "postgres":
         ddl = ddl.replace("(datetime('now'))", "(now()::text)")
+    session_ddl = ("CREATE TABLE IF NOT EXISTS session ("
+                   "id INTEGER PRIMARY KEY, token TEXT, cookie TEXT, merchant_id TEXT)")
+    if _backend == "postgres":
+        session_ddl = session_ddl.replace("id INTEGER PRIMARY KEY", "id SERIAL PRIMARY KEY")
     with _conn() as c:
         cur = c.cursor()
         cur.execute(ddl)
+        cur.execute(session_ddl)
         # ponytail: additive migration for DBs created before pending_utr existed.
         try:
             cur.execute("ALTER TABLE payments ADD COLUMN pending_utr TEXT")
@@ -119,6 +124,23 @@ def queued_payments():
 def admin_search(q):
     with _conn() as c:
         cur = c.cursor(); cur.execute(_q("SELECT * FROM payments WHERE order_id=%s OR utr=%s LIMIT 1"), (q, q))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def save_session(token, cookie, merchant_id):
+    """Persist the BharatPe session so a redeploy/restart stays logged in."""
+    with _conn() as c:
+        cur = c.cursor()
+        cur.execute(_q("DELETE FROM session"))
+        cur.execute(_q("INSERT INTO session (token, cookie, merchant_id) VALUES (%s,%s,%s)"),
+                    (token, cookie, merchant_id))
+
+
+def load_session():
+    """Return the stored {token, cookie, merchant_id} or None (fresh install)."""
+    with _conn() as c:
+        cur = c.cursor(); cur.execute("SELECT * FROM session LIMIT 1")
         row = cur.fetchone()
         return dict(row) if row else None
 

@@ -28,6 +28,7 @@ from .payment import register_payment_handlers
 from .admin import register_admin_handlers
 from .session_monitor import start_session_monitor
 from .verify import verify_utr, VerifyResult
+from .bharatpe import load_persisted_session
 
 __all__ = [
     "PaymentConfig",
@@ -37,4 +38,5 @@ __all__ = [
     "start_session_monitor",
     "verify_utr",
     "VerifyResult",
+    "load_persisted_session",
 ]

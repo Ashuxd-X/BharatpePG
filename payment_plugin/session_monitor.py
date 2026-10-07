@@ -8,7 +8,7 @@ Users never see "session expired" — the payment handler stays neutral.
 
 import logging
 from telegram.ext import ContextTypes
-from .bharatpe import check_credentials, find_by_utr, CredentialsExpiredError
+from .bharatpe import check_credentials, has_session, find_by_utr, CredentialsExpiredError
 from .database import queued_payments, claim_utr, fail_payment
 from .delivery import deliver
 
@@ -29,6 +29,8 @@ async def _alert_admins(bot, cfg, text):
 async def _check_job(ctx: ContextTypes.DEFAULT_TYPE):
     cfg = ctx.job.data
     global _alerted
+    if not has_session(cfg):                # never logged in — nothing to monitor yet
+        return
     state = check_credentials(cfg)          # 'ok' | 'expired' | 'unknown'
     if state == "expired" and not _alerted:
         _alerted = True

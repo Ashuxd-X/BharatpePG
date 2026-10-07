@@ -19,7 +19,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from payment_plugin import (
     PaymentConfig, init_db, register_payment_handlers,
-    register_admin_handlers, start_session_monitor,
+    register_admin_handlers, start_session_monitor, load_persisted_session,
 )
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s — %(message)s", level=logging.INFO)
@@ -59,6 +59,7 @@ async def cmd_balance(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 def main():
     init_db(cfg)
+    load_persisted_session(cfg)           # stay logged in across redeploys
     app = Application.builder().token(os.environ["BOT_TOKEN"]).build()
     app.add_handler(CommandHandler("balance", cmd_balance))
     register_payment_handlers(app, cfg)   # /pay flow fires on_verified on success

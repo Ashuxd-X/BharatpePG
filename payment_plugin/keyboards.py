@@ -55,6 +55,10 @@ def admin_kb():
             InlineKeyboardButton("💰 Recent", callback_data="admin:recent"),
             InlineKeyboardButton("🔍 Search", callback_data="admin:search"),
         ],
+        [
+            InlineKeyboardButton("🔌 Status", callback_data="admin:status"),
+            InlineKeyboardButton("🔑 Login", callback_data="admin:login"),
+        ],
         [InlineKeyboardButton("🏠 Menu", callback_data="nav:home")],
     ])
 

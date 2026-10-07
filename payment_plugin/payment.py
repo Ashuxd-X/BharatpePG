@@ -7,7 +7,7 @@ import logging
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
-from .bharatpe import find_by_utr, CredentialsExpiredError
+from .bharatpe import find_by_utr, has_session, CredentialsExpiredError
 from .qr_generator import make_qr
 from .database import insert_payment, get_payment, claim_utr, fail_payment, queue_utr
 from .config import PaymentConfig
@@ -24,7 +24,7 @@ def register_payment_handlers(app, cfg: PaymentConfig):
     """Register the payment handlers, closed over cfg."""
 
     async def _start_payment(message, ctx, amount: float, user_id: int):
-        if not session_healthy():          # don't take money we can't verify — no QR
+        if not has_session(cfg) or not session_healthy():   # no login yet, or known outage — no QR
             await message.reply_text(_GATEWAY_DOWN)
             return
         if not (cfg.min_amount <= amount <= cfg.max_amount):
@@ -89,7 +89,7 @@ def register_payment_handlers(app, cfg: PaymentConfig):
             ctx.user_data.pop("await_utr", None)
             await message.reply_text("⚠️ This order is no longer pending. Start a new /pay.")
             return
-        if not session_healthy():          # known outage — queue without hitting BharatPe
+        if not has_session(cfg) or not session_healthy():   # no session / known outage — queue
             queue_utr(order_id, utr)
             ctx.user_data.pop("await_utr", None)
             await message.reply_text(

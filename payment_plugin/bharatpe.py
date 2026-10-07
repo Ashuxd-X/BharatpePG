@@ -32,11 +32,35 @@ def _get_live(cfg) -> dict:
     return _live.setdefault(_key(cfg), {"token": cfg.api_token, "cookie": cfg.api_cookie})
 
 
+def has_session(cfg) -> bool:
+    """True once a token exists (via /login or an api_token seed) — i.e. a
+    verification is even possible. False means nobody has logged in yet."""
+    return bool(_get_live(cfg)["token"])
+
+
 def update_credentials(token: str, cookie: str, cfg) -> None:
-    """Replace the active BharatPe credentials at runtime (no restart)."""
+    """Replace the active BharatPe credentials at runtime AND persist them, so a
+    redeploy/restart stays logged in (no re-OTP every deploy)."""
     slot = _get_live(cfg)
     slot["token"], slot["cookie"] = token.strip(), cookie.strip()
-    logger.info(f"BharatPe credentials updated for merchant {cfg.merchant_id}")
+    from .database import save_session
+    save_session(slot["token"], slot["cookie"], cfg.merchant_id)
+    logger.info(f"BharatPe credentials updated + persisted for merchant {cfg.merchant_id}")
+
+
+def load_persisted_session(cfg) -> bool:
+    """Restore a saved session into memory on startup. Returns True if one was
+    found. Call once after init_db so the bot survives redeploys without re-login."""
+    from .database import load_session
+    s = load_session()
+    if not s or not s.get("token"):
+        return False
+    slot = _get_live(cfg)
+    slot["token"], slot["cookie"] = s["token"], s.get("cookie", "")
+    if s.get("merchant_id") and not cfg.merchant_id:
+        cfg.merchant_id = s["merchant_id"]
+    logger.info("Restored persisted BharatPe session")
+    return True
 
 
 def _build_headers(cfg) -> dict:

@@ -5,7 +5,7 @@ from telegram import Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
 from .database import admin_recent, admin_search
-from .bharatpe import check_credentials, start_login, complete_login
+from .bharatpe import check_credentials, start_login, complete_login, has_session
 from .session_monitor import session_restored
 from .config import PaymentConfig
 from .keyboards import admin_kb, back_admin_kb, is_admin, BTN_ADMIN, BTN_LOGIN
@@ -53,6 +53,20 @@ def register_admin_handlers(app, cfg: PaymentConfig):
         elif action == "search":
             ctx.user_data["input"] = "admin_search"
             await q.message.reply_text("🔍 Enter Order ID or UTR:")
+        elif action == "status":
+            if not has_session(cfg):
+                msg = "🔴 *Not logged in.*\nTap 🔑 Login to connect your BharatPe account."
+            else:
+                live = {"ok": "🟢 Logged in — BharatPe API responding.",
+                        "expired": "🔴 Session expired — tap 🔑 Login to reconnect.",
+                        "unknown": "🟡 Logged in, but BharatPe is unreachable right now."}[check_credentials(cfg)]
+                msg = f"*BharatPe Status*\n{live}"
+            await q.message.reply_text(msg, reply_markup=back_admin_kb(), parse_mode="Markdown")
+        elif action == "login":
+            ctx.user_data["input"] = "login_mobile"
+            await q.message.reply_text(
+                "🔑 *BharatPe Login*\nStep 1/2 — send your 10-digit mobile number.\n/cancel to abort.",
+                parse_mode="Markdown")
 
     async def on_admin_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         text = update.message.text.strip()

@@ -23,7 +23,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 
 from payment_plugin import (
     PaymentConfig, init_db, register_payment_handlers,
-    register_admin_handlers, start_session_monitor,
+    register_admin_handlers, start_session_monitor, load_persisted_session,
 )
 from payment_plugin.keyboards import menu_kb, is_admin
 
@@ -98,6 +98,7 @@ async def on_home(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 def main():
     init_db(cfg)
+    load_persisted_session(cfg)           # stay logged in across redeploys
     app = Application.builder().token(os.environ["BOT_TOKEN"]).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("balance", cmd_balance))
