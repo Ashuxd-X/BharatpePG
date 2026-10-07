@@ -59,3 +59,8 @@ session.json
 
 # HAR captures — contain live session tokens/cookies, never commit
 *.har
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
