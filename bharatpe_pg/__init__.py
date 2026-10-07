@@ -2,7 +2,7 @@
 
 Quick start::
 
-    from payment_plugin import (
+    from bharatpe_pg import (
         PaymentConfig, init_db,
         register_payment_handlers, register_admin_handlers,
     )

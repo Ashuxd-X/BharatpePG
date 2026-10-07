@@ -10,10 +10,10 @@ Assert-based, stdlib only — fakes BharatPe, no network/telegram.
 import os, sys, asyncio, tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from payment_plugin.config import PaymentConfig
-import payment_plugin.database as db
-import payment_plugin.verify as verify
-import payment_plugin.delivery as delivery
+from bharatpe_pg.config import PaymentConfig
+import bharatpe_pg.database as db
+import bharatpe_pg.verify as verify
+import bharatpe_pg.delivery as delivery
 
 tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False); tmp.close()
 try:

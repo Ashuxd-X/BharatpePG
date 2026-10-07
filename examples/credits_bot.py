@@ -17,7 +17,7 @@ from dotenv import load_dotenv; load_dotenv()
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-from payment_plugin import (
+from bharatpe_pg import (
     PaymentConfig, init_db, register_payment_handlers,
     register_admin_handlers, start_session_monitor, load_persisted_session,
 )

@@ -8,8 +8,8 @@ invariant (utr UNIQUE), not app logic.
 import os, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from payment_plugin.config import PaymentConfig
-import payment_plugin.database as db
+from bharatpe_pg.config import PaymentConfig
+import bharatpe_pg.database as db
 
 tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False); tmp.close()
 try:

@@ -21,11 +21,11 @@ from dotenv import load_dotenv; load_dotenv()
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-from payment_plugin import (
+from bharatpe_pg import (
     PaymentConfig, init_db, register_payment_handlers,
     register_admin_handlers, start_session_monitor, load_persisted_session,
 )
-from payment_plugin.keyboards import menu_kb, is_admin
+from bharatpe_pg.keyboards import menu_kb, is_admin
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s — %(message)s", level=logging.INFO)
 

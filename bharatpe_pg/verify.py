@@ -4,7 +4,7 @@ One call runs all five guards plus the reuse guard and returns a plain result,
 so a dev can bolt BharatPe verification onto any flow (credits top-up,
 pay-per-use, a custom QR screen) without adopting the /pay handlers.
 
-    from payment_plugin import verify_utr, PaymentConfig, init_db
+    from bharatpe_pg import verify_utr, PaymentConfig, init_db
     init_db(cfg)
     r = verify_utr("664700063288", 100.0, order_id="topup-42", user_id=123, cfg=cfg)
     if r.ok:

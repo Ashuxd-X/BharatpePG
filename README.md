@@ -2,7 +2,7 @@
 
 <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/1f4b3.svg" width="90" alt="logo"/>
 
-# BharatPe Payment Plugin
+# BharatpePG
 
 ### Drop-in UPI payments for any Telegram bot — pay by QR, verify by UTR, deliver automatically.
 
@@ -54,16 +54,18 @@ A customer pays the exact amount by scanning a branded QR, sends you the 12-digi
 ## 📦 Installation
 
 ```bash
-pip install git+https://github.com/AshuXD-X/bharatpe-payment-plugin
+pip install bharatpe-pg
 ```
 
 <details>
 <summary>Postgres instead of the default SQLite file</summary>
 
 ```bash
-pip install "bharatpe-payment-plugin[postgres] @ git+https://github.com/AshuXD-X/bharatpe-payment-plugin"
+pip install "bharatpe-pg[postgres]"
 ```
 </details>
+
+> Not yet on PyPI? Install from source: `pip install git+https://github.com/AshuXD-X/bharatpe-payment-plugin`
 
 ---
 
@@ -73,7 +75,7 @@ Add it to any `python-telegram-bot` app with **three calls** — your own handle
 
 ```python
 from telegram.ext import Application
-from payment_plugin import PaymentConfig, init_db, register_payment_handlers, register_admin_handlers
+from bharatpe_pg import PaymentConfig, init_db, register_payment_handlers, register_admin_handlers
 
 cfg = PaymentConfig(
     upi_id        = "yourname@yesbankltd",
@@ -158,7 +160,7 @@ async def on_verified(bot, order):
 Already have your own payment UI? Call one function. It runs all five guards **plus** reuse protection and returns a result — no need for the `/pay` handlers:
 
 ```python
-from payment_plugin import verify_utr, init_db
+from bharatpe_pg import verify_utr, init_db
 init_db(cfg)
 
 r = verify_utr("664700063288", 100.0, order_id="topup-42", user_id=123, cfg=cfg)
@@ -251,8 +253,8 @@ Why this matters: python-telegram-bot runs **only the first** handler that match
 **Prefer to use none of the plugin's commands?** Skip `register_admin_handlers` and drive everything from your own UI with the building blocks:
 
 ```python
-from payment_plugin.bharatpe import start_login, complete_login, check_credentials, has_session
-from payment_plugin.database import admin_recent, admin_search
+from bharatpe_pg.bharatpe import start_login, complete_login, check_credentials, has_session
+from bharatpe_pg.database import admin_recent, admin_search
 ```
 
 The **payment flow (`register_payment_handlers`) is independent** of the admin panel — you can ship `/pay` + `on_verified` without the plugin's `/admin` at all.
@@ -293,7 +295,7 @@ The **payment flow (`register_payment_handlers`) is independent** of the admin p
 
 </div>
 
-**Postgres (opt-in):** `pip install "bharatpe-payment-plugin[postgres]"` and set `DATABASE_URL=postgres://…`. The same `utr UNIQUE` schema is created automatically — recommended for multi-process setups.
+**Postgres (opt-in):** `pip install "bharatpe-pg[postgres]"` and set `DATABASE_URL=postgres://…`. The same `utr UNIQUE` schema is created automatically — recommended for multi-process setups.
 
 ---
 

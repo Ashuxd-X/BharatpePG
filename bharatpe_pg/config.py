@@ -14,13 +14,11 @@ class PaymentConfig:
 
     Example::
 
-        from payment_plugin import PaymentConfig, register_payment_handlers
-        from database import init_db
+        from bharatpe_pg import PaymentConfig, init_db, register_payment_handlers
 
         cfg = PaymentConfig(
             upi_id="yourname@bank",
             merchant_name="My Store",
-            merchant_id="12345678",
             admin_ids=[123456789],
         )
         init_db(cfg)
