@@ -1,96 +1,129 @@
-# bharatpe-payment-plugin
+<div align="center">
 
-Drop-in UPI payments for any [python-telegram-bot](https://docs.python-telegram-bot.org) project, backed by your own BharatPe merchant account. A user pays the exact amount by scanning a QR, then sends you the 12-digit UTR; the bot verifies it against your BharatPe transactions and marks the order paid.
+<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/1f4b3.svg" width="90" alt="logo"/>
 
-> **Honest caveat — read this first.** This talks to **unofficial / private BharatPe endpoints** (the ones the enterprise dashboard uses). There is no public BharatPe API. Endpoints can change or break without notice — they already changed domains once, which is why every host here is **configurable, not hard-coded**. Use it only with **your own KYC-verified merchant account**. You are responsible for complying with BharatPe's terms.
+# BharatPe Payment Plugin
 
-## What you get
+### Drop-in UPI payments for any Telegram bot — pay by QR, verify by UTR, deliver automatically.
 
-- `/pay [amount]` — amount picker → exact-amount UPI QR → user submits UTR → verified.
-- `/login` — admin authenticates the BharatPe session with mobile + OTP (OTP typed manually, never auto-read).
-- `/admin` — recent payments + search by order ID / UTR.
-- Zero database setup by default (stdlib sqlite file). Postgres is an opt-in extra.
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
+[![python-telegram-bot](https://img.shields.io/badge/python--telegram--bot-20%2B-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://python-telegram-bot.org)
+[![UPI](https://img.shields.io/badge/UPI-0%25%20fee-00BFA5?style=for-the-badge&logo=googlepay&logoColor=white)](#)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-## 5-minute quickstart
+<img src="https://img.shields.io/badge/SQLite-default-003B57?style=flat-square&logo=sqlite&logoColor=white"/>
+<img src="https://img.shields.io/badge/PostgreSQL-optional-4169E1?style=flat-square&logo=postgresql&logoColor=white"/>
+<img src="https://img.shields.io/badge/Railway-ready-0B0D0E?style=flat-square&logo=railway&logoColor=white"/>
+<img src="https://img.shields.io/badge/Render-ready-46E3B7?style=flat-square&logo=render&logoColor=white"/>
+<img src="https://img.shields.io/badge/VPS-ready-FCC624?style=flat-square&logo=linux&logoColor=black"/>
 
-Install straight from GitHub — it's a single importable package, nothing to copy:
+</div>
+
+---
+
+> [!WARNING]
+> **Unofficial integration — read first.** This talks to **private BharatPe endpoints** (the ones the enterprise dashboard uses). There is no public BharatPe API, so endpoints can change without notice — which is why every host here is **configurable, not hard-coded**. Use it **only with your own KYC-verified merchant account**, and comply with BharatPe's terms.
+
+---
+
+## ✨ What it does
+
+A customer pays the exact amount by scanning a branded QR, sends you the 12-digit **UTR**, and the bot verifies it against **your own BharatPe account** — then runs your delivery logic automatically. No payment gateway, no 2% fee, no website.
+
+<div align="center">
+
+| 💳 **Collect** | 🔐 **Verify** | 📦 **Deliver** |
+|:---:|:---:|:---:|
+| Branded UPI QR for the exact amount | 5 safety guards + reuse protection | `on_verified` hook fires once per sale |
+
+</div>
+
+### 🚀 Feature highlights
+
+- 🧾 **`/pay` flow** — amount picker → professional QR card → UTR submission → verified
+- 🔑 **`/login` (OTP)** — authenticate your BharatPe session from your phone; merchant ID auto-discovered
+- 🧮 **`verify_utr()`** — standalone one-call verification for your own custom UI
+- 🪝 **`on_verified` hook** — deliver files, group invites, license keys, or **credits** — automatically
+- 🛡️ **Outage-safe** — background health monitor, new payments paused while down, in-flight UTRs **queued and auto-delivered on recovery**
+- 🗄️ **Zero-setup storage** — stdlib SQLite by default; Postgres is one env var
+- ⌨️ **Inline + reply keyboards** — both, out of the box
+- ☁️ **Deploy anywhere** — Railway, Render, or a plain VPS
+
+---
+
+## 📦 Installation
 
 ```bash
 pip install git+https://github.com/AshuXD-X/bharatpe-payment-plugin
-# Postgres instead of the default sqlite file store:
-# pip install "bharatpe-payment-plugin[postgres] @ git+https://github.com/AshuXD-X/bharatpe-payment-plugin"
 ```
 
-Add it to any existing `python-telegram-bot` app with three calls — your own
-handlers are untouched:
+<details>
+<summary>Postgres instead of the default SQLite file</summary>
+
+```bash
+pip install "bharatpe-payment-plugin[postgres] @ git+https://github.com/AshuXD-X/bharatpe-payment-plugin"
+```
+</details>
+
+---
+
+## ⚡ Quickstart
+
+Add it to any `python-telegram-bot` app with **three calls** — your own handlers stay untouched:
 
 ```python
 from telegram.ext import Application
 from payment_plugin import PaymentConfig, init_db, register_payment_handlers, register_admin_handlers
 
 cfg = PaymentConfig(
-    upi_id="yourname@yesbankltd",
-    merchant_name="My Store",
-    admin_ids=[123456789],       # your Telegram user ID(s)
+    upi_id        = "yourname@yesbankltd",
+    merchant_name = "My Store",
+    admin_ids     = [123456789],          # your Telegram user ID
     # merchant_id is optional — auto-discovered when the admin runs /login
 )
 
 app = Application.builder().token("BOT_TOKEN").build()
-init_db(cfg)                     # sqlite file store — no DB server needed
-register_payment_handlers(app, cfg)
-register_admin_handlers(app, cfg)   # optional: /admin + /login
+init_db(cfg)                              # SQLite file store — no DB server needed
+register_payment_handlers(app, cfg)       # /pay flow
+register_admin_handlers(app, cfg)         # /login + /admin
 app.run_polling()
 ```
 
-A runnable version with `/start` + `nav:home` is in [`examples/minimal_bot.py`](examples/minimal_bot.py).
+🏃 **Runnable examples:** [`examples/minimal_bot.py`](examples/minimal_bot.py) · [`examples/credits_bot.py`](examples/credits_bot.py)
 
-## Configuration
+---
 
-`PaymentConfig` is a dataclass — pass values directly or read them from env vars. Only `upi_id` and `merchant_name` are required (plus `admin_ids` if you want `/login` and `/admin`).
+## 🔄 How it works
 
-| Field | Default | Meaning |
-|---|---|---|
-| `upi_id` | — (required) | Your UPI VPA, encoded into the QR |
-| `merchant_name` | — (required) | Shown on the QR card |
-| `merchant_id` | `""` (optional) | Usually unneeded — BharatPe scopes by your login token; omitted from the request when blank |
-| `admin_ids` | `[]` | Telegram user IDs allowed to run `/login` and `/admin` |
-| `auth_host` | `https://enterprise.bharatpe.in` | Login/OTP host |
-| `api_host` | `https://api-enterprise.bharatpe.in` | Transactions API host |
-| `bharatpe_api` | derived from `api_host` | Full transactions URL (override only if needed) |
-| `db_url` | `""` | Set to a `postgres://…` DSN to use Postgres instead of sqlite |
-| `db_path` | `payments.db` | sqlite file path (used when `db_url` is empty) |
-| `utr_window_sec` | `1800` | UTR recency guard — reject UTRs older than this |
-| `min_amount` / `max_amount` | `1` / `50000` | Allowed payment range (₹) |
-| `user_agent` | mobile Chrome UA | Sent on BharatPe requests |
+```mermaid
+flowchart LR
+    A([User taps 💳 Pay]) --> B[Branded UPI QR<br/>exact amount]
+    B --> C([User pays via<br/>any UPI app])
+    C --> D([Sends 12-digit UTR])
+    D --> E{Verify against<br/>BharatPe}
+    E -->|✓ all guards pass| F[Claim UTR<br/>once-only]
+    F --> G[[on_verified<br/>deliver product]]
+    E -->|session down| Q[(Queue)]
+    Q -.->|auto on recovery| F
+```
 
-## The `/login` OTP flow
+---
 
-BharatPe login is phone number + OTP (no password). An admin runs it once:
+## 🔑 The `/login` OTP flow
 
-1. Admin sends `/login` → bot asks for the 10-digit mobile.
-2. Bot calls BharatPe `requestotp`; BharatPe texts the OTP to the admin's phone.
-3. Admin types the OTP into the chat → bot calls `verifyotp` and stores the `accessToken` + session cookies in memory.
+BharatPe login is **phone + OTP** (no password). An admin runs it once:
 
-The OTP is **entered manually every time**. The bot never reads SMS. If the session later expires, just run `/login` again.
+1. Send `/login` → bot asks for the 10-digit mobile
+2. BharatPe texts the OTP → admin types it into the chat
+3. Bot stores the session and **auto-discovers the merchant ID** (BharatPe never shows it in the UI)
 
-## The payment + verify flow
+> The OTP is **entered manually every time** — the bot never reads SMS. If the session expires later, just `/login` again.
 
-1. User sends `/pay 500` (or taps an amount) → bot creates an order and shows a QR for **exactly ₹500**.
-2. User pays with any UPI app and copies the **12-digit UTR** (bank reference number).
-3. User sends the UTR to the bot. Before marking the order paid, the UTR must clear five guards:
-   1. **exists** in your BharatPe transactions,
-   2. type `PAYMENT_RECV` and status `SUCCESS`,
-   3. amount matches the order,
-   4. not already used by another order (`utr` column is `UNIQUE` — reuse is rejected at the storage layer),
-   5. recent, within `utr_window_sec`.
+---
 
-   The submitted value is validated as 12 digits before any lookup.
+## 📦 Delivering the product — the `on_verified` hook
 
-## Delivering the product — the `on_verified` hook
-
-Set one callback and the plugin runs it **once per paid order**, the moment a
-payment verifies — whether instantly or hours later after a gateway outage.
-This is where you deliver a file, send a group invite, or add credits.
+Set one callback; the plugin runs it **exactly once per paid order**, the moment a payment verifies — instantly *or* after an outage. This is where you hand over the goods.
 
 ```python
 async def on_verified(bot, order):
@@ -100,30 +133,32 @@ async def on_verified(bot, order):
 cfg = PaymentConfig(upi_id="…", merchant_name="…", on_verified=on_verified)
 ```
 
-**Credits top-up example** (pay ₹100 → get credits at your rate):
+### 🧮 Real example — a credits top-up bot
+
+> Pay ₹100 → get 100 credits (rate set by you). See [`examples/credits_bot.py`](examples/credits_bot.py).
 
 ```python
-CREDIT_RATE = 1   # credits per ₹ — your rule
+CREDIT_RATE = 1   # credits per ₹ — your rule (1, 2, 10, …)
 
 async def on_verified(bot, order):
     credits = int(order["amount"] * CREDIT_RATE)
-    add_credits(order["user_id"], credits)         # your own balance store
+    add_credits(order["user_id"], credits)          # your own balance store
     await bot.send_message(order["user_id"], f"🎉 Added {credits} credits.")
 ```
 
-Delivery fires **after** the UTR is claimed, so a given UTR can never trigger
-delivery twice. If the hook raises, the error is logged but verification and
-the user's confirmation still complete. Full runnable version:
-[`examples/credits_bot.py`](examples/credits_bot.py).
+> [!NOTE]
+> Delivery fires **after** the UTR is claimed, so one UTR can never deliver twice. If your hook raises, the error is logged but the user's confirmation still completes.
 
-## Standalone verification — `verify_utr`
+**💡 Use cases this unlocks:** file / ebook / zip delivery · license & game keys · paid group invite links · premium feature unlocks · timed subscriptions · pay-per-use credits · donation / tip jars · reseller fulfillment pings.
 
-Already have your own payment screen and just want the BharatPe check? Call one
-function. It runs all five guards **plus** the reuse guard and returns a result —
-no need to use the `/pay` handlers at all:
+---
+
+## 🧮 Standalone verification — `verify_utr()`
+
+Already have your own payment UI? Call one function. It runs all five guards **plus** reuse protection and returns a result — no need for the `/pay` handlers:
 
 ```python
-from payment_plugin import verify_utr, PaymentConfig, init_db
+from payment_plugin import verify_utr, init_db
 init_db(cfg)
 
 r = verify_utr("664700063288", 100.0, order_id="topup-42", user_id=123, cfg=cfg)
@@ -131,37 +166,94 @@ if r.ok:                       # r.reason: verified | bad_utr | not_found | reus
     add_credits(123, 100)
 ```
 
-`order_id` must be unique per sale. A UTR already used — or an order already
-paid — returns `ok=False` with `reason="reused"`, so replays are blocked here too.
+---
 
-## What happens during an outage
+## 🛡️ Verification guards
 
-The BharatPe session expires periodically (it's a login session, not an API key).
-The plugin handles this so you don't have to:
+Every UTR must clear all of these before an order is marked paid:
 
-- A **background monitor** (`start_session_monitor`) checks session health every
-  few minutes and DMs admins once when it expires → admin runs `/login` (10s).
-- While down, **new `/pay` requests are refused** ("gateway down, try later") —
-  no QR is issued for a payment that couldn't be verified.
-- A UTR submitted during the outage is **queued**, the user told it's saved.
-  On recovery the monitor verifies queued UTRs and **fires `on_verified`** for
-  each — so products/credits are delivered automatically, no resend.
+| # | Guard | Protects against |
+|---|-------|------------------|
+| 1 | **Exists** in your BharatPe transactions | fake UTRs |
+| 2 | Type `PAYMENT_RECV` + status `SUCCESS` | refunds / failed txns |
+| 3 | **Amount matches** the order | underpaying |
+| 4 | **Not already used** (`utr` is `UNIQUE`) | replaying one payment |
+| 5 | **Recent**, within `utr_window_sec` | recycling old UTRs |
 
-## Security
+---
 
-- **Never commit the Burp capture or any session.** The raw capture contains a live token/cookies; it is gitignored and must stay out of the repo.
-- Credentials come from the live `/login` session (or `api_token`/`api_cookie` seeds you inject) — not from source.
-- The `utr UNIQUE` constraint makes "one UTR, one order" a storage invariant, so a copied UTR can't be replayed against a second order.
-- `/login` and `/admin` are locked to `admin_ids`.
+## ⚙️ What happens during an outage
 
-## Deploy — Railway / Render / VPS
+The BharatPe session expires periodically (it's a login session, not an API key). The plugin handles it so you don't have to:
 
-Default is zero-DB: the sqlite file lives next to the bot, so a plain worker/process just works.
+- 🔭 **Background monitor** checks health every few minutes → DMs admins once when it expires
+- 🚫 While down, **new `/pay` is refused** ("gateway down, try later") — no QR for a payment you can't verify
+- 📥 A UTR paid during the window is **queued**; on recovery it's verified and **`on_verified` fires** — product delivered automatically, no resend
 
-- **Railway / Render:** add a service running `python examples/minimal_bot.py`, set `BOT_TOKEN`, `UPI_ID`, `MERCHANT_NAME`, `MERCHANT_ID`, `ADMIN_IDS`. For sqlite to survive restarts, mount a persistent volume and point `DB_PATH` at it.
-- **VPS:** run under `systemd` or `pm2`; same env vars.
-- **Postgres (opt-in):** `pip install "bharatpe-payment-plugin[postgres]"` (or `psycopg2-binary`) and set `DATABASE_URL=postgres://…`. The same schema (`utr UNIQUE`) is created automatically — recommended if you run multiple processes.
+---
 
-## License
+## 🔧 Configuration
 
-MIT — see [LICENSE](LICENSE).
+`PaymentConfig` is a dataclass — pass values directly or from env. Only `upi_id` and `merchant_name` are required.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `upi_id` | — *(required)* | Your UPI VPA, encoded into the QR |
+| `merchant_name` | — *(required)* | Shown on the QR card |
+| `admin_ids` | `[]` | Telegram IDs allowed to run `/login` and `/admin` |
+| `on_verified` | `None` | Async hook run once per paid order |
+| `merchant_id` | `""` | Auto-discovered at `/login` — usually leave blank |
+| `auth_host` | `enterprise.bharatpe.in` | Login/OTP host *(configurable)* |
+| `api_host` | `payments-tesseract.bharatpe.in` | Transactions host *(configurable)* |
+| `db_url` | `""` | Set a `postgres://…` DSN to use Postgres |
+| `db_path` | `payments.db` | SQLite file path (when `db_url` is empty) |
+| `utr_window_sec` | `1800` | Reject UTRs older than this (30 min) |
+| `session_check_sec` | `300` | Background health-check interval |
+| `min_amount` / `max_amount` | `1` / `50000` | Allowed range (₹) |
+
+---
+
+## ☁️ Deploy
+
+<div align="center">
+
+| Platform | Notes |
+|---|---|
+| <img src="https://img.shields.io/badge/Railway-131415?logo=railway&logoColor=white"/> | Run `python examples/minimal_bot.py`, set env vars. Mount a volume + set `DB_PATH` so SQLite survives redeploys, or use Postgres. |
+| <img src="https://img.shields.io/badge/Render-46E3B7?logo=render&logoColor=black"/> | Same — add a persistent disk for durable storage, or set `DATABASE_URL`. |
+| <img src="https://img.shields.io/badge/VPS-FCC624?logo=linux&logoColor=black"/> | Run under `systemd` / `pm2`; the default SQLite file just works. |
+
+</div>
+
+**Postgres (opt-in):** `pip install "bharatpe-payment-plugin[postgres]"` and set `DATABASE_URL=postgres://…`. The same `utr UNIQUE` schema is created automatically — recommended for multi-process setups.
+
+---
+
+## 🔒 Security
+
+- 🚫 **Never commit** your `.env`, session files, or any Burp/HAR capture — all gitignored.
+- 🔑 Credentials come from the live `/login` session, **never from source**.
+- 🧷 `utr UNIQUE` makes "one UTR, one order" a storage invariant — copied UTRs can't be replayed.
+- 👮 `/login` and `/admin` are locked to `admin_ids`.
+
+---
+
+## 🧪 Tests
+
+Three stdlib `assert` self-checks (no pytest, no network) guard the money-critical logic:
+
+```bash
+python tests/test_utr_reuse.py        # one UTR can't pay two orders
+python tests/test_queue_drain.py      # outage queue verifies + delivers on recovery
+python tests/test_verify_and_hook.py  # verify_utr guards + on_verified fires once
+```
+
+---
+
+<div align="center">
+
+**MIT Licensed** · Built for small Telegram sellers who want **0% UPI collection** without a gateway.
+
+<sub>Not affiliated with or endorsed by BharatPe. Use responsibly with your own merchant account.</sub>
+
+</div>
