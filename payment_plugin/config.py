@@ -55,10 +55,6 @@ class PaymentConfig:
     max_amount: float = 50000.0
     timeout: int = 300          # QR caption hint only (no polling anymore)
 
-    # ── Rate limits (in-memory, best-effort) ───────────────────────────────
-    max_per_hour: int = 10
-    max_concurrent: int = 3
-
     # ── Admin Telegram user IDs ─────────────────────────────────────────────
     admin_ids: list[int] = field(default_factory=list)
 

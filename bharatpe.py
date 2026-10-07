@@ -107,7 +107,7 @@ def start_login(mobile: str, cfg) -> str:
                data={"mobile": mobile, "_token": csrf},
                headers={"X-Requested-With": "XMLHttpRequest", "User-Agent": cfg.user_agent}, timeout=15)
     d = r.json()
-    if not d.get("status") or "uuid" not in d.get("data", {}):
+    if not d.get("success") or "uuid" not in d.get("data", {}):
         raise RuntimeError(f"requestotp failed: {d.get('message', d)}")
     s.csrf = csrf                       # ponytail: stash csrf on the session, saves a dict
     _sessions[cfg.merchant_id] = s
@@ -125,7 +125,7 @@ def complete_login(mobile: str, uuid: str, otp: str, cfg) -> str:
                data={"mobile": mobile, "uuid": uuid, "otp": otp, "_token": s.csrf},
                headers={"X-Requested-With": "XMLHttpRequest", "User-Agent": cfg.user_agent}, timeout=15)
     d = r.json()
-    if not d.get("status") or "accessToken" not in d.get("data", {}):
+    if not d.get("success") or "accessToken" not in d.get("data", {}):
         raise RuntimeError(f"verifyotp failed: {d.get('message', d)}")
     # ponytail: rebuild the Cookie header from the jar — works because BharatPe
     # only needs XSRF-TOKEN + bharatpe_session, no path/domain nuance.
