@@ -11,7 +11,7 @@ from bharatpe import find_by_utr, CredentialsExpiredError
 from qr_generator import make_qr
 from database import insert_payment, get_payment, claim_utr, fail_payment
 from .config import PaymentConfig
-from .keyboards import amounts_kb, result_kb
+from .keyboards import amounts_kb, result_kb, BTN_PAY
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +55,9 @@ def register_payment_handlers(app, cfg: PaymentConfig):
 
     async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         text = update.message.text.strip()
+        if text == BTN_PAY:                           # reply-keyboard "💳 Pay"
+            await update.message.reply_text("Select amount or enter custom:", reply_markup=amounts_kb())
+            return
         # UTR submission takes priority if we're awaiting one.
         order_id = ctx.user_data.get("await_utr")
         if order_id:

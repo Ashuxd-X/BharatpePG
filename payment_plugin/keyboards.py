@@ -1,11 +1,26 @@
 """Keyboard layouts bundled with the payment plugin."""
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    InlineKeyboardButton, InlineKeyboardMarkup,
+    KeyboardButton, ReplyKeyboardMarkup,
+)
+
+# Persistent reply-keyboard labels (buttons send these as plain text).
+BTN_PAY, BTN_ADMIN, BTN_LOGIN = "💳 Pay", "📊 Admin", "🔑 Login"
 
 
 def is_admin(user_id: int, admin_ids: list) -> bool:
     """Return True if user_id is in the admin list."""
     return user_id in admin_ids
+
+
+def menu_kb(admin: bool = False):
+    """Persistent reply keyboard at the bottom of the chat. Admins also see
+    Admin/Login. ponytail: labels double as the router keys in on_text."""
+    rows = [[KeyboardButton(BTN_PAY)]]
+    if admin:
+        rows.append([KeyboardButton(BTN_ADMIN), KeyboardButton(BTN_LOGIN)])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
 
 def amounts_kb():

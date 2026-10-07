@@ -7,7 +7,7 @@ from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, C
 from database import admin_recent, admin_search
 from bharatpe import check_credentials, start_login, complete_login
 from .config import PaymentConfig
-from .keyboards import admin_kb, back_admin_kb, is_admin
+from .keyboards import admin_kb, back_admin_kb, is_admin, BTN_ADMIN, BTN_LOGIN
 
 log = logging.getLogger(__name__)
 
@@ -54,11 +54,19 @@ def register_admin_handlers(app, cfg: PaymentConfig):
             await q.message.reply_text("🔍 Enter Order ID or UTR:")
 
     async def on_admin_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+        text = update.message.text.strip()
+        if text in (BTN_ADMIN, BTN_LOGIN):            # reply-keyboard shortcuts (admin-only)
+            if not _admin(update.effective_user.id):
+                return
+            if text == BTN_ADMIN:
+                await update.message.reply_text("🔐 *Admin Panel*", reply_markup=admin_kb(), parse_mode="Markdown")
+            else:
+                await cmd_login(update, ctx)
+            return
         inp = ctx.user_data.get("input", "")
         if inp not in ("login_mobile", "login_otp", "admin_search") or not _admin(update.effective_user.id):
             return
         ctx.user_data.pop("input", None)
-        text = update.message.text.strip()
 
         if inp == "login_mobile":
             try:

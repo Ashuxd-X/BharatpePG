@@ -15,6 +15,7 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 from payment_plugin import PaymentConfig, register_payment_handlers, register_admin_handlers
+from payment_plugin.keyboards import menu_kb, is_admin
 from database import init_db
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s — %(message)s", level=logging.INFO)
@@ -30,10 +31,13 @@ cfg = PaymentConfig(
 
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("💳 Pay Now", callback_data="pay:start")]])
+    # Persistent reply keyboard (bottom bar) + inline Pay Now button — both work.
     await update.message.reply_text(
-        f"👋 Welcome to *{cfg.merchant_name}*!\nTap *Pay Now* or send `/pay <amount>`.",
-        reply_markup=kb, parse_mode="Markdown")
+        f"👋 Welcome to *{cfg.merchant_name}*!\nUse the buttons below or send `/pay <amount>`.",
+        reply_markup=menu_kb(admin=is_admin(update.effective_user.id, cfg.admin_ids)),
+        parse_mode="Markdown")
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("💳 Pay Now", callback_data="pay:start")]])
+    await update.message.reply_text("Quick pay:", reply_markup=kb)
 
 
 async def on_home(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
