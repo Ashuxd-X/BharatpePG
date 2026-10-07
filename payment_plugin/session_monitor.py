@@ -8,7 +8,8 @@ Users never see "session expired" — the payment handler stays neutral.
 
 import logging
 from telegram.ext import ContextTypes
-from .bharatpe import check_credentials
+from .bharatpe import check_credentials, find_by_utr, CredentialsExpiredError
+from .database import queued_payments, claim_utr, fail_payment
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +37,34 @@ async def _check_job(ctx: ContextTypes.DEFAULT_TYPE):
     elif state == "ok" and _alerted:
         _alerted = False                    # recovered (e.g. admin re-logged in)
         log.info("session healthy again")
+        await _drain_queue(ctx.bot, cfg)
+
+
+async def _drain_queue(bot, cfg):
+    """Verify UTRs queued during the outage and notify each user of the result."""
+    for p in queued_payments():
+        try:
+            match = find_by_utr(p["pending_utr"], p["amount"], cfg)
+        except CredentialsExpiredError:
+            return                          # session died again mid-drain; retry next cycle
+        except Exception as e:
+            log.warning(f"queue verify failed for {p['order_id']}: {e}")
+            continue
+        ok = match and claim_utr(p["order_id"], p["pending_utr"])
+        if not ok:
+            fail_payment(p["order_id"])     # leave the queue so we don't re-notify forever
+        text = (f"✅ *Payment Verified!*\n💰 ₹{p['amount']:.2f}\n🔗 `{p['pending_utr']}`\n📝 `{p['order_id']}`"
+                if ok else
+                f"❌ We couldn't verify order `{p['order_id']}`. If you paid, contact support.")
+        try:
+            await bot.send_message(p["user_id"], text, parse_mode="Markdown")
+        except Exception as e:
+            log.warning(f"could not notify {p['user_id']}: {e}")
+
+
+def session_healthy() -> bool:
+    """False while we're in a known outage (admins alerted, awaiting /login)."""
+    return not _alerted
 
 
 def session_restored():

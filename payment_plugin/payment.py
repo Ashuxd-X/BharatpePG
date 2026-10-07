@@ -9,9 +9,12 @@ from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, C
 
 from .bharatpe import find_by_utr, CredentialsExpiredError
 from .qr_generator import make_qr
-from .database import insert_payment, get_payment, claim_utr, fail_payment
+from .database import insert_payment, get_payment, claim_utr, fail_payment, queue_utr
 from .config import PaymentConfig
 from .keyboards import amounts_kb, result_kb, BTN_PAY
+from .session_monitor import session_healthy
+
+_GATEWAY_DOWN = "🛠 Payment gateway is temporarily down. Please try again in a few minutes."
 
 log = logging.getLogger(__name__)
 
@@ -20,6 +23,9 @@ def register_payment_handlers(app, cfg: PaymentConfig):
     """Register the payment handlers, closed over cfg."""
 
     async def _start_payment(message, ctx, amount: float, user_id: int):
+        if not session_healthy():          # don't take money we can't verify — no QR
+            await message.reply_text(_GATEWAY_DOWN)
+            return
         if not (cfg.min_amount <= amount <= cfg.max_amount):
             await message.reply_text(f"❌ Amount must be ₹{cfg.min_amount:.0f}–₹{cfg.max_amount:,.0f}")
             return
@@ -82,12 +88,22 @@ def register_payment_handlers(app, cfg: PaymentConfig):
             ctx.user_data.pop("await_utr", None)
             await message.reply_text("⚠️ This order is no longer pending. Start a new /pay.")
             return
+        if not session_healthy():          # known outage — queue without hitting BharatPe
+            queue_utr(order_id, utr)
+            ctx.user_data.pop("await_utr", None)
+            await message.reply_text(
+                "🛠 Payment gateway is temporarily down. Your payment is *saved* — "
+                "I'll notify you here as soon as it's verified.", parse_mode="Markdown")
+            return
         try:
             match = find_by_utr(utr, pay["amount"], cfg)
         except CredentialsExpiredError:
-            # Neutral to the user — the background monitor already alerts the admin.
-            await message.reply_text("⏳ Verifying your payment — this can take a minute. "
-                                     "Please resend the UTR shortly if you don't get a confirmation.")
+            # Queue it — the monitor verifies and notifies the user once the session is back.
+            queue_utr(order_id, utr)
+            ctx.user_data.pop("await_utr", None)
+            await message.reply_text(
+                "🛠 Payment gateway is temporarily down. Your payment is *saved* — "
+                "I'll notify you here as soon as it's verified.", parse_mode="Markdown")
             return
         except Exception as e:
             log.error(f"UTR lookup failed: {e}")

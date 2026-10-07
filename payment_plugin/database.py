@@ -46,11 +46,18 @@ def init_db(cfg):
     ddl = ("CREATE TABLE IF NOT EXISTS payments ("
            "order_id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, amount REAL NOT NULL, "
            "status TEXT NOT NULL DEFAULT 'PENDING', utr TEXT UNIQUE, "
+           "pending_utr TEXT, "          # utr submitted during an outage, awaiting verify
            "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
     if _backend == "postgres":
         ddl = ddl.replace("(datetime('now'))", "(now()::text)")
     with _conn() as c:
-        c.cursor().execute(ddl)
+        cur = c.cursor()
+        cur.execute(ddl)
+        # ponytail: additive migration for DBs created before pending_utr existed.
+        try:
+            cur.execute("ALTER TABLE payments ADD COLUMN pending_utr TEXT")
+        except Exception:
+            pass                         # column already present
     log.info(f"Storage initialized ({_backend})")
 
 
@@ -74,7 +81,7 @@ def claim_utr(order_id, utr):
         with _conn() as c:
             cur = c.cursor()
             cur.execute(_q("UPDATE payments SET status='SUCCESS', utr=%s "
-                           "WHERE order_id=%s AND status='PENDING'"), (utr, order_id))
+                           "WHERE order_id=%s AND status IN ('PENDING','QUEUED')"), (utr, order_id))
             return cur.rowcount > 0
     except Exception as e:  # IntegrityError (sqlite3 or psycopg2) = utr reused
         if "unique" in str(e).lower() or "duplicate" in str(e).lower():
@@ -85,7 +92,21 @@ def claim_utr(order_id, utr):
 def fail_payment(order_id):
     with _conn() as c:
         c.cursor().execute(_q("UPDATE payments SET status='FAILURE' "
-                              "WHERE order_id=%s AND status='PENDING'"), (order_id,))
+                              "WHERE order_id=%s AND status IN ('PENDING','QUEUED')"), (order_id,))
+
+
+def queue_utr(order_id, utr):
+    """Park a UTR submitted during a session outage; the monitor verifies it later."""
+    with _conn() as c:
+        c.cursor().execute(_q("UPDATE payments SET status='QUEUED', pending_utr=%s "
+                              "WHERE order_id=%s AND status='PENDING'"), (utr, order_id))
+
+
+def queued_payments():
+    """All orders awaiting post-recovery verification (user_id, amount, pending_utr)."""
+    with _conn() as c:
+        cur = c.cursor(); cur.execute("SELECT * FROM payments WHERE status='QUEUED'")
+        return [dict(r) for r in cur.fetchall()]
 
 
 def admin_search(q):
