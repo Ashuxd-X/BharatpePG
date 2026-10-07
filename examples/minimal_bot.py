@@ -9,7 +9,7 @@ Shows every feature wired together:
   • background session monitor (outage detection + queued auto-verify)
   • Unicode small-caps UI text via sc()
 
-    pip install git+https://github.com/AshuXD-X/bharatpe-payment-plugin python-dotenv
+    pip install git+https://github.com/AshuXD-X/BharatpePG python-dotenv
 
 Env (see .env.example): BOT_TOKEN, UPI_ID, MERCHANT_NAME, ADMIN_IDS,
 optional DATABASE_URL / DB_PATH.

@@ -6,7 +6,7 @@ payment verifies, on_verified runs and the credits land in the user's balance.
 Works the same if the payment verifies instantly OR after a gateway outage —
 the plugin fires on_verified once per paid order either way.
 
-    pip install git+https://github.com/AshuXD-X/bharatpe-payment-plugin python-dotenv
+    pip install git+https://github.com/AshuXD-X/BharatpePG python-dotenv
 
 Env: BOT_TOKEN, UPI_ID, MERCHANT_NAME, ADMIN_IDS  (see .env.example)
 """

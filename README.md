@@ -65,7 +65,7 @@ pip install "bharatpe-pg[postgres]"
 ```
 </details>
 
-> Not yet on PyPI? Install from source: `pip install git+https://github.com/AshuXD-X/bharatpe-payment-plugin`
+> Not yet on PyPI? Install from source: `pip install git+https://github.com/AshuXD-X/BharatpePG`
 
 ---
 
