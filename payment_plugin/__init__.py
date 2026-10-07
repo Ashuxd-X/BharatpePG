@@ -2,13 +2,14 @@
 
 Quick start::
 
-    from payment_plugin import PaymentConfig, register_payment_handlers, register_admin_handlers
-    from database import init_db
+    from payment_plugin import (
+        PaymentConfig, init_db,
+        register_payment_handlers, register_admin_handlers,
+    )
 
     cfg = PaymentConfig(
         upi_id="yourname@bank",
         merchant_name="My Store",
-        merchant_id="12345678",
         admin_ids=[123456789],
     )
 
@@ -22,11 +23,13 @@ See README.md for the full guide.
 """
 
 from .config import PaymentConfig
+from .database import init_db
 from .payment import register_payment_handlers
 from .admin import register_admin_handlers
 
 __all__ = [
     "PaymentConfig",
+    "init_db",
     "register_payment_handlers",
     "register_admin_handlers",
 ]

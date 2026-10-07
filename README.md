@@ -13,21 +13,26 @@ Drop-in UPI payments for any [python-telegram-bot](https://docs.python-telegram-
 
 ## 5-minute quickstart
 
+Install straight from GitHub — it's a single importable package, nothing to copy:
+
 ```bash
-pip install python-telegram-bot requests pillow qrcode[pil]
-# copy these into your project: payment_plugin/  bharatpe.py  qr_generator.py  database.py
+pip install git+https://github.com/Teamhapp/bharatpe-payment-plugin
+# Postgres instead of the default sqlite file store:
+# pip install "bharatpe-payment-plugin[postgres] @ git+https://github.com/Teamhapp/bharatpe-payment-plugin"
 ```
+
+Add it to any existing `python-telegram-bot` app with three calls — your own
+handlers are untouched:
 
 ```python
 from telegram.ext import Application
-from payment_plugin import PaymentConfig, register_payment_handlers, register_admin_handlers
-from database import init_db
+from payment_plugin import PaymentConfig, init_db, register_payment_handlers, register_admin_handlers
 
 cfg = PaymentConfig(
     upi_id="yourname@yesbankltd",
     merchant_name="My Store",
     admin_ids=[123456789],       # your Telegram user ID(s)
-    # merchant_id is optional — BharatPe scopes by your /login token
+    # merchant_id is optional — auto-discovered when the admin runs /login
 )
 
 app = Application.builder().token("BOT_TOKEN").build()

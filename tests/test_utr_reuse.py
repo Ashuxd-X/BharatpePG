@@ -9,7 +9,7 @@ import os, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from payment_plugin.config import PaymentConfig
-import database as db
+import payment_plugin.database as db
 
 tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False); tmp.close()
 try:

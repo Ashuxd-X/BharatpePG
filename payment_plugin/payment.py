@@ -7,9 +7,9 @@ import logging
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
-from bharatpe import find_by_utr, CredentialsExpiredError
-from qr_generator import make_qr
-from database import insert_payment, get_payment, claim_utr, fail_payment
+from .bharatpe import find_by_utr, CredentialsExpiredError
+from .qr_generator import make_qr
+from .database import insert_payment, get_payment, claim_utr, fail_payment
 from .config import PaymentConfig
 from .keyboards import amounts_kb, result_kb, BTN_PAY
 

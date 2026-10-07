@@ -4,10 +4,7 @@ Set the env vars below and run. The bot takes UPI payments via /pay (scan the
 exact-amount QR, then send the 12-digit UTR). Admins run /login once to
 authenticate the BharatPe merchant session; /admin shows recent payments.
 
-    pip install python-telegram-bot requests pillow qrcode[pil]
-
-Files needed alongside this script (copy from the repo root):
-    payment_plugin/   bharatpe.py   qr_generator.py   database.py
+    pip install git+https://github.com/Teamhapp/bharatpe-payment-plugin python-dotenv
 """
 
 import os, sys, logging
@@ -16,9 +13,8 @@ from dotenv import load_dotenv; load_dotenv()   # read .env if present
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-from payment_plugin import PaymentConfig, register_payment_handlers, register_admin_handlers
+from payment_plugin import PaymentConfig, init_db, register_payment_handlers, register_admin_handlers
 from payment_plugin.keyboards import menu_kb, is_admin
-from database import init_db
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s — %(message)s", level=logging.INFO)
 

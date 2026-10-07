@@ -4,8 +4,8 @@ import logging
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
-from database import admin_recent, admin_search
-from bharatpe import check_credentials, start_login, complete_login
+from .database import admin_recent, admin_search
+from .bharatpe import check_credentials, start_login, complete_login
 from .config import PaymentConfig
 from .keyboards import admin_kb, back_admin_kb, is_admin, BTN_ADMIN, BTN_LOGIN
 
