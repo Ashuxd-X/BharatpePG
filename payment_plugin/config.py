@@ -1,6 +1,7 @@
 """PaymentConfig — injectable configuration for the UPI payment plugin."""
 
 from dataclasses import dataclass, field
+from typing import Callable, Optional
 
 
 @dataclass
@@ -61,6 +62,13 @@ class PaymentConfig:
 
     # ── Admin Telegram user IDs ─────────────────────────────────────────────
     admin_ids: list[int] = field(default_factory=list)
+
+    # ── Delivery hook ────────────────────────────────────────────────────────
+    # async def on_verified(bot, order): ...   order = {user_id, amount, order_id, utr}
+    # Called exactly once per paid order, after the UTR is verified AND claimed —
+    # from both the instant path and post-outage queue drain. Put your "give the
+    # product / add credits / send invite link" logic here.
+    on_verified: Optional[Callable] = None
 
     def __post_init__(self):
         self.bharatpe_api = self.bharatpe_api or f"{self.api_host}/api/v1/merchant/transactions"

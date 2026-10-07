@@ -10,6 +10,7 @@ import logging
 from telegram.ext import ContextTypes
 from .bharatpe import check_credentials, find_by_utr, CredentialsExpiredError
 from .database import queued_payments, claim_utr, fail_payment
+from .delivery import deliver
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +61,10 @@ async def _drain_queue(bot, cfg):
             await bot.send_message(p["user_id"], text, parse_mode="Markdown")
         except Exception as e:
             log.warning(f"could not notify {p['user_id']}: {e}")
+        if ok:                              # deliver AFTER the claim — once per paid order
+            await deliver(bot, cfg,
+                          {"user_id": p["user_id"], "amount": p["amount"],
+                           "order_id": p["order_id"], "utr": p["pending_utr"]})
 
 
 def session_healthy() -> bool:

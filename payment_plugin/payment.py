@@ -13,6 +13,7 @@ from .database import insert_payment, get_payment, claim_utr, fail_payment, queu
 from .config import PaymentConfig
 from .keyboards import amounts_kb, result_kb, BTN_PAY
 from .session_monitor import session_healthy
+from .delivery import deliver
 
 _GATEWAY_DOWN = "🛠 Payment gateway is temporarily down. Please try again in a few minutes."
 
@@ -121,6 +122,8 @@ def register_payment_handlers(app, cfg: PaymentConfig):
             f"✅ *Payment Verified!*\n💰 ₹{match['amount']:.2f}\n🔗 `{utr}`\n👤 {payer}\n📝 `{order_id}`",
             reply_markup=result_kb(), parse_mode="Markdown")
         log.info(f"OK | {order_id} | UTR={utr}")
+        await deliver(message.get_bot(), cfg,
+                      {"user_id": pay["user_id"], "amount": pay["amount"], "order_id": order_id, "utr": utr})
 
     app.add_handler(CommandHandler("pay", cmd_pay))
     app.add_handler(CallbackQueryHandler(on_pay_button, pattern=r"^pay:"))

@@ -67,6 +67,13 @@ def insert_payment(order_id, user_id, amount):
                            (order_id, user_id, amount))
 
 
+def ensure_payment(order_id, user_id, amount):
+    """Insert a PENDING row only if order_id is new (for standalone verify_utr,
+    whose caller may not have gone through the /pay flow). Idempotent."""
+    if get_payment(order_id) is None:
+        insert_payment(order_id, user_id, amount)
+
+
 def get_payment(order_id):
     with _conn() as c:
         cur = c.cursor(); cur.execute(_q("SELECT * FROM payments WHERE order_id=%s"), (order_id,))

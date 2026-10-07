@@ -27,6 +27,7 @@ from .database import init_db
 from .payment import register_payment_handlers
 from .admin import register_admin_handlers
 from .session_monitor import start_session_monitor
+from .verify import verify_utr, VerifyResult
 
 __all__ = [
     "PaymentConfig",
@@ -34,4 +35,6 @@ __all__ = [
     "register_payment_handlers",
     "register_admin_handlers",
     "start_session_monitor",
+    "verify_utr",
+    "VerifyResult",
 ]

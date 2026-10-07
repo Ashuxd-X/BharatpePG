@@ -86,6 +86,67 @@ The OTP is **entered manually every time**. The bot never reads SMS. If the sess
 
    The submitted value is validated as 12 digits before any lookup.
 
+## Delivering the product — the `on_verified` hook
+
+Set one callback and the plugin runs it **once per paid order**, the moment a
+payment verifies — whether instantly or hours later after a gateway outage.
+This is where you deliver a file, send a group invite, or add credits.
+
+```python
+async def on_verified(bot, order):
+    # order = {"user_id":…, "amount":…, "order_id":…, "utr":…}
+    await bot.send_document(order["user_id"], open("product.pdf", "rb"))
+
+cfg = PaymentConfig(upi_id="…", merchant_name="…", on_verified=on_verified)
+```
+
+**Credits top-up example** (pay ₹100 → get credits at your rate):
+
+```python
+CREDIT_RATE = 1   # credits per ₹ — your rule
+
+async def on_verified(bot, order):
+    credits = int(order["amount"] * CREDIT_RATE)
+    add_credits(order["user_id"], credits)         # your own balance store
+    await bot.send_message(order["user_id"], f"🎉 Added {credits} credits.")
+```
+
+Delivery fires **after** the UTR is claimed, so a given UTR can never trigger
+delivery twice. If the hook raises, the error is logged but verification and
+the user's confirmation still complete. Full runnable version:
+[`examples/credits_bot.py`](examples/credits_bot.py).
+
+## Standalone verification — `verify_utr`
+
+Already have your own payment screen and just want the BharatPe check? Call one
+function. It runs all five guards **plus** the reuse guard and returns a result —
+no need to use the `/pay` handlers at all:
+
+```python
+from payment_plugin import verify_utr, PaymentConfig, init_db
+init_db(cfg)
+
+r = verify_utr("664700063288", 100.0, order_id="topup-42", user_id=123, cfg=cfg)
+if r.ok:                       # r.reason: verified | bad_utr | not_found | reused | gateway_down | error
+    add_credits(123, 100)
+```
+
+`order_id` must be unique per sale. A UTR already used — or an order already
+paid — returns `ok=False` with `reason="reused"`, so replays are blocked here too.
+
+## What happens during an outage
+
+The BharatPe session expires periodically (it's a login session, not an API key).
+The plugin handles this so you don't have to:
+
+- A **background monitor** (`start_session_monitor`) checks session health every
+  few minutes and DMs admins once when it expires → admin runs `/login` (10s).
+- While down, **new `/pay` requests are refused** ("gateway down, try later") —
+  no QR is issued for a payment that couldn't be verified.
+- A UTR submitted during the outage is **queued**, the user told it's saved.
+  On recovery the monitor verifies queued UTRs and **fires `on_verified`** for
+  each — so products/credits are delivered automatically, no resend.
+
 ## Security
 
 - **Never commit the Burp capture or any session.** The raw capture contains a live token/cookies; it is gitignored and must stay out of the repo.
