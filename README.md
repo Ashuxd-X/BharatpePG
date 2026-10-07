@@ -308,12 +308,13 @@ The **payment flow (`register_payment_handlers`) is independent** of the admin p
 
 ## 🧪 Tests
 
-Three stdlib `assert` self-checks (no pytest, no network) guard the money-critical logic:
+Four stdlib `assert` self-checks (no pytest, no network) guard the money-critical logic:
 
 ```bash
 python tests/test_utr_reuse.py        # one UTR can't pay two orders
 python tests/test_queue_drain.py      # outage queue verifies + delivers on recovery
 python tests/test_verify_and_hook.py  # verify_utr guards + on_verified fires once
+python tests/test_session_persist.py  # session survives a redeploy (no re-login)
 ```
 
 ---
