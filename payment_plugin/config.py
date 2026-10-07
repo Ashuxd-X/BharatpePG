@@ -63,6 +63,13 @@ class PaymentConfig:
     # ── Admin Telegram user IDs ─────────────────────────────────────────────
     admin_ids: list[int] = field(default_factory=list)
 
+    # ── Command names — rename to avoid clashing with your own bot's commands.
+    # Give the bare word (no leading slash). Defaults match the docs.
+    cmd_pay: str = "pay"
+    cmd_admin: str = "admin"
+    cmd_login: str = "login"
+    cmd_cancel: str = "cancel"
+
     # ── Delivery hook ────────────────────────────────────────────────────────
     # async def on_verified(bot, order): ...   order = {user_id, amount, order_id, utr}
     # Called exactly once per paid order, after the UTR is verified AND claimed —

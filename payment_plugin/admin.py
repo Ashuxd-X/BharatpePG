@@ -118,8 +118,8 @@ def register_admin_handlers(app, cfg: PaymentConfig):
             ctx.user_data.pop("login_mobile", None); ctx.user_data.pop("login_uuid", None)
             await update.message.reply_text("❌ Cancelled.", reply_markup=back_admin_kb())
 
-    app.add_handler(CommandHandler("admin", cmd_admin))
-    app.add_handler(CommandHandler("login", cmd_login))
-    app.add_handler(CommandHandler("cancel", cmd_cancel))
+    app.add_handler(CommandHandler(cfg.cmd_admin, cmd_admin))
+    app.add_handler(CommandHandler(cfg.cmd_login, cmd_login))
+    app.add_handler(CommandHandler(cfg.cmd_cancel, cmd_cancel))
     app.add_handler(CallbackQueryHandler(on_admin_button, pattern=r"^admin:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_admin_text), group=2)

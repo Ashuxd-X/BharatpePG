@@ -125,6 +125,6 @@ def register_payment_handlers(app, cfg: PaymentConfig):
         await deliver(message.get_bot(), cfg,
                       {"user_id": pay["user_id"], "amount": pay["amount"], "order_id": order_id, "utr": utr})
 
-    app.add_handler(CommandHandler("pay", cmd_pay))
+    app.add_handler(CommandHandler(cfg.cmd_pay, cmd_pay))
     app.add_handler(CallbackQueryHandler(on_pay_button, pattern=r"^pay:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text), group=1)

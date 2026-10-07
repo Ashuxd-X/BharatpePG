@@ -230,19 +230,32 @@ The session is saved to your storage so a redeploy **doesn't** force a re-login.
 
   Without durable storage you'll have to `/login` again after every deploy, and payment history resets.
 
-### Already have your own `/admin`?
+### Command names clash with your bot's? Rename them.
 
-The plugin registers `/admin`, `/login`, `/cancel` in the **default handler group**. Within a group, python-telegram-bot runs **only the first** handler that matches a command — so you can't have two live `/admin` commands. Options:
+The plugin's four commands — `pay`, `admin`, `login`, `cancel` — are **configurable**. If your bot already uses any of those, just rename the plugin's in `PaymentConfig` (give the bare word, no slash):
 
-1. **Don't call `register_admin_handlers`** — instead build your own panel and reuse the plugin's building blocks directly:
-   ```python
-   from payment_plugin.bharatpe import start_login, complete_login, check_credentials, has_session
-   from payment_plugin.database import admin_recent, admin_search
-   ```
-   Wire these into your existing `/admin` however you like.
-2. **Keep both, under different names** — call `register_admin_handlers` and let the plugin own `/admin`, while your own panel lives on a different command (e.g. `/panel`).
+```python
+cfg = PaymentConfig(
+    upi_id="…", merchant_name="…",
+    cmd_pay="buy",        # /buy instead of /pay
+    cmd_admin="panel",    # /panel instead of /admin
+    cmd_login="bplogin",
+    cmd_cancel="abort",
+)
+```
 
-Either way, the **payment flow (`register_payment_handlers`) is independent** of the admin panel — you can always ship `/pay` + `on_verified` without the plugin's `/admin` at all.
+Why this matters: python-telegram-bot runs **only the first** handler that matches a command within a group, so two handlers on the same command would shadow each other. Renaming removes the clash entirely — no shared command, no shadowing.
+
+> **Free-text messages don't clash.** The plugin's text handlers live in groups 1 and 2 (not the default group 0) and only act on their own state (awaiting a UTR / an admin input) — your own group-0 text handlers run normally alongside.
+
+**Prefer to use none of the plugin's commands?** Skip `register_admin_handlers` and drive everything from your own UI with the building blocks:
+
+```python
+from payment_plugin.bharatpe import start_login, complete_login, check_credentials, has_session
+from payment_plugin.database import admin_recent, admin_search
+```
+
+The **payment flow (`register_payment_handlers`) is independent** of the admin panel — you can ship `/pay` + `on_verified` without the plugin's `/admin` at all.
 
 ---
 
@@ -254,8 +267,9 @@ Either way, the **payment flow (`register_payment_handlers`) is independent** of
 |---|---|---|
 | `upi_id` | — *(required)* | Your UPI VPA, encoded into the QR |
 | `merchant_name` | — *(required)* | Shown on the QR card |
-| `admin_ids` | `[]` | Telegram IDs allowed to run `/login` and `/admin` |
+| `admin_ids` | `[]` | Telegram IDs allowed to run the admin + login commands |
 | `on_verified` | `None` | Async hook run once per paid order |
+| `cmd_pay` / `cmd_admin` / `cmd_login` / `cmd_cancel` | `pay` / `admin` / `login` / `cancel` | Rename the plugin's commands to avoid clashing with yours |
 | `merchant_id` | `""` | Auto-discovered at `/login` — usually leave blank |
 | `auth_host` | `enterprise.bharatpe.in` | Login/OTP host *(configurable)* |
 | `api_host` | `payments-tesseract.bharatpe.in` | Transactions host *(configurable)* |
