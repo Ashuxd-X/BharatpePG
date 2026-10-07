@@ -26,8 +26,8 @@ from database import init_db
 cfg = PaymentConfig(
     upi_id="yourname@yesbankltd",
     merchant_name="My Store",
-    merchant_id="12345678",
     admin_ids=[123456789],       # your Telegram user ID(s)
+    # merchant_id is optional — BharatPe scopes by your /login token
 )
 
 app = Application.builder().token("BOT_TOKEN").build()
@@ -41,13 +41,13 @@ A runnable version with `/start` + `nav:home` is in [`examples/minimal_bot.py`](
 
 ## Configuration
 
-`PaymentConfig` is a dataclass — pass values directly or read them from env vars. Only the first three are required.
+`PaymentConfig` is a dataclass — pass values directly or read them from env vars. Only `upi_id` and `merchant_name` are required (plus `admin_ids` if you want `/login` and `/admin`).
 
 | Field | Default | Meaning |
 |---|---|---|
 | `upi_id` | — (required) | Your UPI VPA, encoded into the QR |
 | `merchant_name` | — (required) | Shown on the QR card |
-| `merchant_id` | — (required) | BharatPe merchant ID (transactions query) |
+| `merchant_id` | `""` (optional) | Usually unneeded — BharatPe scopes by your login token; omitted from the request when blank |
 | `admin_ids` | `[]` | Telegram user IDs allowed to run `/login` and `/admin` |
 | `auth_host` | `https://enterprise.bharatpe.in` | Login/OTP host |
 | `api_host` | `https://api-enterprise.bharatpe.in` | Transactions API host |

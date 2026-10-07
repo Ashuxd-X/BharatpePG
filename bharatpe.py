@@ -54,11 +54,12 @@ def fetch_transactions(cfg) -> list:
     """Fetch recent QR payment transactions. Raises CredentialsExpiredError if
     the token/cookie is rejected; requests.RequestException on network errors."""
     now = datetime.now(IST)
-    resp = requests.get(cfg.bharatpe_api, params={
-        "module": "PAYMENT_QR", "merchantId": cfg.merchant_id,
-        "sDate": (now - timedelta(days=2)).strftime("%Y-%m-%d"),
-        "eDate": (now + timedelta(days=1)).strftime("%Y-%m-%d"),
-    }, headers=_build_headers(cfg), timeout=15)
+    params = {"module": "PAYMENT_QR",
+              "sDate": (now - timedelta(days=2)).strftime("%Y-%m-%d"),
+              "eDate": (now + timedelta(days=1)).strftime("%Y-%m-%d")}
+    if cfg.merchant_id:                      # dashboard sends merchantId only when known
+        params["merchantId"] = cfg.merchant_id
+    resp = requests.get(cfg.bharatpe_api, params=params, headers=_build_headers(cfg), timeout=15)
     return _parse_response(resp)
 
 

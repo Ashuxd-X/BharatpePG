@@ -29,7 +29,10 @@ class PaymentConfig:
     # ── Merchant identity ──────────────────────────────────────────────────
     upi_id: str
     merchant_name: str
-    merchant_id: str
+    # Optional: BharatPe scopes transactions by your login token, so this is
+    # usually unnecessary. Leave empty unless you need to pin a specific
+    # brand/store; the request omits merchantId when it's blank.
+    merchant_id: str = ""
 
     # ── BharatPe hosts (configurable — the domain changed recently) ─────────
     auth_host: str = "https://enterprise.bharatpe.in"
