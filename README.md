@@ -91,7 +91,7 @@ register_admin_handlers(app, cfg)         # /login + /admin
 app.run_polling()
 ```
 
-🏃 **Runnable examples:** [`examples/minimal_bot.py`](examples/minimal_bot.py) · [`examples/credits_bot.py`](examples/credits_bot.py)
+🏃 **Runnable examples:** [`minimal_bot.py`](examples/minimal_bot.py) (defaults) · [`credits_bot.py`](examples/credits_bot.py) (top-up wallet) · [`themed_bot.py`](examples/themed_bot.py) (fully rebranded UI)
 
 ---
 
