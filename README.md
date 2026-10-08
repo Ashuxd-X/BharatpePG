@@ -155,6 +155,66 @@ async def on_verified(bot, order):
 
 ---
 
+## 🎨 Customize the UI — brand everything
+
+Nothing is hard-coded. Colours, text, buttons, and amount presets are all config —
+and if you want total control, pass your own QR renderer.
+
+**QR card** — colours (hex or RGB), tagline, footer, fonts:
+
+```python
+from bharatpe_pg import PaymentConfig, QRTheme
+
+cfg = PaymentConfig(
+    upi_id="…", merchant_name="GlowStore",
+    qr_theme=QRTheme(
+        bg_top="#2d1b4e", bg_bottom="#0f0524", accent="#ff6b9d",
+        tagline="PAY & GLOW", footer_hint="UPI only", show_dots=False,
+        font_bold="Montserrat-Bold.ttf",   # optional custom font
+    ),
+)
+```
+
+**Buttons + amount grid:**
+
+```python
+from bharatpe_pg import UIButtons
+
+cfg = PaymentConfig(
+    upi_id="…", merchant_name="…",
+    amount_presets=[49, 99, 199, 499],          # your own quick-pay amounts
+    ui=UIButtons(menu_pay="🛒 Buy", custom_label="💬 Other amount", amounts_per_row=2),
+)
+```
+
+**Every message** — templates with `{amount}`, `{order_id}`, `{utr}`, `{payer}`:
+
+```python
+from bharatpe_pg import Messages
+
+cfg = PaymentConfig(
+    upi_id="…", merchant_name="…",
+    messages=Messages(
+        pay_caption="🧾 Send *₹{amount:.2f}* to the QR, then paste the UTR.\n`{order_id}`",
+        verified="🎉 Done! ₹{amount:.2f} received from {payer}.",
+    ),
+)
+```
+
+**Full control** — bypass the built-in card with your own renderer:
+
+```python
+def my_qr(amount, order_id, cfg):
+    ...                      # build any PNG you like
+    return png_bytesio       # io.BytesIO
+
+cfg = PaymentConfig(upi_id="…", merchant_name="…", qr_renderer=my_qr)
+```
+
+All of these are optional — omit them and you get the polished defaults.
+
+---
+
 ## 🧮 Standalone verification — `verify_utr()`
 
 Already have your own payment UI? Call one function. It runs all five guards **plus** reuse protection and returns a result — no need for the `/pay` handlers:

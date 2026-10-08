@@ -79,7 +79,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"👋 *{sc('welcome to')} {cfg.merchant_name}*\n\n"
         f"{sc('tap a button below or send')} `/pay <amount>`\n"
         f"{sc('check credits with')} /balance",
-        reply_markup=menu_kb(admin=admin), parse_mode="Markdown")
+        reply_markup=menu_kb(admin=admin, cfg=cfg), parse_mode="Markdown")
     await update.message.reply_text(sc("quick pay") + ":", reply_markup=_home_inline())
 
 

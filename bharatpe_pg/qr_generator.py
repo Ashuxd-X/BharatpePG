@@ -1,37 +1,30 @@
 """
-UPI QR Code Generator — professional branded QR cards for Telegram.
+UPI QR card generator — fully themeable via cfg.qr_theme (see theme.QRTheme).
 
-Pure Pillow (stdlib + already-installed deps), no external image assets:
-a dark gradient canvas, a rounded white QR panel, a gradient brand header,
-an amount pill, and a UPI-app accent strip.
+Pure Pillow, no external assets. An integrator can also bypass this entirely
+by setting cfg.qr_renderer to their own callable(amount, order_id, cfg) -> BytesIO.
 """
 
 import io
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 from urllib.parse import quote
-
-# Palette
-BG_TOP, BG_BOT = (26, 26, 46), (15, 52, 96)      # deep indigo → blue gradient
-ACCENT = (0, 191, 165)                            # teal accent
-QR_DARK = (26, 26, 46)
-WHITE = (255, 255, 255)
-MUTED = (150, 160, 180)
-UPI_DOTS = [(0, 184, 148), (9, 132, 227), (108, 92, 231), (253, 150, 68)]  # app-ish accents
+from .theme import QRTheme
 
 
-def _font(size, bold=False):
-    for name in ((["arialbd.ttf", "DejaVuSans-Bold.ttf"] if bold else []) +
-                 ["arial.ttf", "DejaVuSans.ttf"]):
+def _font(name, size, fallback_bold=False):
+    candidates = [n for n in (name,) if n] + (
+        ["arialbd.ttf", "DejaVuSans-Bold.ttf"] if fallback_bold else ["arial.ttf", "DejaVuSans.ttf"])
+    for n in candidates:
         try:
-            return ImageFont.truetype(name, size)
+            return ImageFont.truetype(n, size)
         except OSError:
             continue
     return ImageFont.load_default()
 
 
 def _vgradient(w, h, top, bot):
-    """Vertical gradient as an RGB image. ponytail: per-row fill, O(h) not O(w*h)."""
+    """Vertical gradient. ponytail: per-row fill, O(h) not O(w*h)."""
     img = Image.new("RGB", (w, h))
     d = ImageDraw.Draw(img)
     for y in range(h):
@@ -46,79 +39,77 @@ def _text_w(draw, text, font):
 
 
 def make_qr(amount: float, order_id: str, cfg) -> io.BytesIO:
-    """Generate a professional branded UPI QR card PNG.
+    """Generate a themed UPI QR card PNG. If cfg.qr_renderer is set, delegate to it."""
+    if getattr(cfg, "qr_renderer", None):
+        return cfg.qr_renderer(amount, order_id, cfg)
 
-    Args:
-        amount:   Exact payment amount.
-        order_id: Unique order identifier embedded in the UPI note field.
-        cfg:      PaymentConfig — provides upi_id and merchant_name.
+    t: QRTheme = getattr(cfg, "qr_theme", None) or QRTheme()
 
-    Returns:
-        BytesIO buffer containing the PNG image.
-    """
     upi_uri = (f"upi://pay?pa={quote(cfg.upi_id)}&am={amount:.2f}"
                f"&pn={quote(cfg.merchant_name)}&tn={quote(order_id)}")
-
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=9, border=1)
     qr.add_data(upi_uri)
     qr.make(fit=True)
-    qr_img = qr.make_image(fill_color=QR_DARK, back_color=WHITE).convert("RGB")
+    qr_img = qr.make_image(fill_color=t.rgb("qr_dark"), back_color=t.rgb("panel")).convert("RGB")
     qr_w, qr_h = qr_img.size
 
-    # Layout
-    pad = 40
-    header_h = 92
-    panel_pad = 26          # white panel inset around the QR
-    amount_h = 64
-    footer_h = 70
+    pad, header_h, panel_pad, amount_h, footer_h = 40, 92, 26, 64, 70
+    has_footer = t.footer_hint or t.show_dots or t.show_order_id
+    footer_h = footer_h if has_footer else 24
     panel_w = qr_w + panel_pad * 2
     card_w = panel_w + pad * 2
     card_h = header_h + amount_h + panel_pad + qr_h + panel_pad + footer_h + pad
 
-    card = _vgradient(card_w, card_h, BG_TOP, BG_BOT)
+    card = _vgradient(card_w, card_h, t.rgb("bg_top"), t.rgb("bg_bottom"))
     draw = ImageDraw.Draw(card)
+    on_bg, on_accent, accent = t.rgb("text_on_bg"), t.rgb("text_on_accent"), t.rgb("accent")
 
-    f_brand = _font(26, bold=True)
-    f_tag = _font(14)
-    f_amt = _font(40, bold=True)
-    f_small = _font(14)
-    f_order = _font(13)
+    f_brand = _font(t.font_bold, 26, fallback_bold=True)
+    f_tag = _font(t.font_regular, 14)
+    f_amt = _font(t.font_bold, 40, fallback_bold=True)
+    f_small = _font(t.font_regular, 14)
+    f_order = _font(t.font_regular, 13)
 
-    # ── Header: brand name + accent underline ──
-    draw.text((pad, 30), cfg.merchant_name, fill=WHITE, font=f_brand)
-    draw.text((pad, 64), "UPI PAYMENT REQUEST", fill=ACCENT, font=f_tag)
-    draw.rounded_rectangle([(pad, header_h - 6), (pad + 60, header_h - 2)], radius=2, fill=ACCENT)
+    # Header: brand + tagline + underline
+    draw.text((pad, 30), cfg.merchant_name, fill=on_bg, font=f_brand)
+    if t.tagline:
+        draw.text((pad, 64), t.tagline, fill=accent, font=f_tag)
+    draw.rounded_rectangle([(pad, header_h - 6), (pad + 60, header_h - 2)], radius=2, fill=accent)
 
-    # ── Amount pill (right-aligned, teal) ──
+    # Amount pill
     amt_text = f"₹{amount:,.2f}"
     aw = _text_w(draw, amt_text, f_amt)
-    pill_w = aw + 44
-    pill_x1 = card_w - pad - pill_w
-    draw.rounded_rectangle([(pill_x1, 22), (card_w - pad, 22 + 56)], radius=28, fill=ACCENT)
-    draw.text((pill_x1 + 22, 30), amt_text, fill=WHITE, font=f_amt)
+    pill_x1 = card_w - pad - (aw + 44)
+    draw.rounded_rectangle([(pill_x1, 22), (card_w - pad, 78)], radius=28, fill=accent)
+    draw.text((pill_x1 + 22, 30), amt_text, fill=on_accent, font=f_amt)
 
-    # ── White rounded QR panel with soft shadow ──
+    # QR panel + shadow
     panel_y = header_h + amount_h
-    sx, sy = pad + 6, panel_y + 6
-    draw.rounded_rectangle([(sx, sy), (sx + panel_w, sy + panel_pad * 2 + qr_h)],
-                           radius=24, fill=(0, 0, 0))                       # shadow
-    px, py = pad, panel_y
-    draw.rounded_rectangle([(px, py), (px + panel_w, py + panel_pad * 2 + qr_h)],
-                           radius=24, fill=WHITE)
-    card.paste(qr_img, (px + panel_pad, py + panel_pad))
+    draw.rounded_rectangle([(pad + 6, panel_y + 6), (pad + 6 + panel_w, panel_y + 6 + panel_pad * 2 + qr_h)],
+                           radius=24, fill=(0, 0, 0))
+    draw.rounded_rectangle([(pad, panel_y), (pad + panel_w, panel_y + panel_pad * 2 + qr_h)],
+                           radius=24, fill=t.rgb("panel"))
+    card.paste(qr_img, (pad + panel_pad, panel_y + panel_pad))
 
-    # ── Footer: scan hint + UPI accent dots + order id ──
-    fy = card_h - footer_h + 6
-    draw.text((pad, fy), "Scan with any UPI app", fill=WHITE, font=f_small)
-    dot_x = pad
-    for i, c in enumerate(UPI_DOTS):
-        cx = dot_x + i * 26
-        draw.ellipse([(cx, fy + 28), (cx + 16, fy + 44)], fill=c)
-    order_text = order_id
-    draw.text((card_w - pad - _text_w(draw, order_text, f_order), fy + 30),
-              order_text, fill=MUTED, font=f_order)
+    # Footer
+    if has_footer:
+        fy = card_h - footer_h + 6
+        if t.footer_hint:
+            draw.text((pad, fy), t.footer_hint, fill=on_bg, font=f_small)
+        if t.show_dots:
+            for i, c in enumerate(t.accent_dots):
+                cx = pad + i * 26
+                draw.ellipse([(cx, fy + 28), (cx + 16, fy + 44)], fill=_rgb_dot(c))
+        if t.show_order_id:
+            draw.text((card_w - pad - _text_w(draw, order_id, f_order), fy + 30),
+                      order_id, fill=t.rgb("muted"), font=f_order)
 
     buf = io.BytesIO()
     card.save(buf, format="PNG")
     buf.seek(0)
     return buf
+
+
+def _rgb_dot(v):
+    from .theme import _rgb
+    return _rgb(v)

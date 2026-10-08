@@ -29,6 +29,7 @@ from .admin import register_admin_handlers
 from .session_monitor import start_session_monitor
 from .verify import verify_utr, VerifyResult
 from .bharatpe import load_persisted_session
+from .theme import QRTheme, UIButtons, Messages
 
 __all__ = [
     "PaymentConfig",
@@ -39,4 +40,7 @@ __all__ = [
     "verify_utr",
     "VerifyResult",
     "load_persisted_session",
+    "QRTheme",
+    "UIButtons",
+    "Messages",
 ]

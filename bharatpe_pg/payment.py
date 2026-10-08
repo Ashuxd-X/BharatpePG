@@ -11,24 +11,27 @@ from .bharatpe import find_by_utr, has_session, CredentialsExpiredError
 from .qr_generator import make_qr
 from .database import insert_payment, get_payment, claim_utr, fail_payment, queue_utr
 from .config import PaymentConfig
-from .keyboards import amounts_kb, result_kb, BTN_PAY
+from .keyboards import amounts_kb, result_kb
 from .session_monitor import session_healthy
 from .delivery import deliver
-
-_GATEWAY_DOWN = "🛠 Payment gateway is temporarily down. Please try again in a few minutes."
+from .theme import Messages, UIButtons
 
 log = logging.getLogger(__name__)
+
+_GATEWAY_DOWN = "🛠 Payment gateway is temporarily down. Please try again in a few minutes."
 
 
 def register_payment_handlers(app, cfg: PaymentConfig):
     """Register the payment handlers, closed over cfg."""
+    msg: Messages = getattr(cfg, "messages", None) or Messages()
+    pay_label = (getattr(cfg, "ui", None) or UIButtons()).menu_pay
 
     async def _start_payment(message, ctx, amount: float, user_id: int):
         if not has_session(cfg) or not session_healthy():   # no login yet, or known outage — no QR
             await message.reply_text(_GATEWAY_DOWN)
             return
         if not (cfg.min_amount <= amount <= cfg.max_amount):
-            await message.reply_text(f"❌ Amount must be ₹{cfg.min_amount:.0f}–₹{cfg.max_amount:,.0f}")
+            await message.reply_text(msg.out_of_range.format(min_amount=cfg.min_amount, max_amount=cfg.max_amount))
             return
         order_id = f"TG{int(time.time())}{int(amount * 100):05d}"
         insert_payment(order_id, user_id, amount)
@@ -36,8 +39,7 @@ def register_payment_handlers(app, cfg: PaymentConfig):
         log.info(f"NEW | {order_id} | ₹{amount} | user={user_id}")
         await message.reply_photo(
             photo=make_qr(amount, order_id, cfg),
-            caption=(f"💳 *Pay exactly ₹{amount:.2f}*\n📱 Scan with any UPI app\n\n"
-                     f"Then send me the *12-digit UTR* from your payment app.\n📝 `{order_id}`"),
+            caption=msg.pay_caption.format(amount=amount, order_id=order_id),
             parse_mode="Markdown",
         )
 
@@ -48,7 +50,7 @@ def register_payment_handlers(app, cfg: PaymentConfig):
                 return
             except ValueError:
                 pass
-        await update.message.reply_text("Select amount or enter custom:", reply_markup=amounts_kb())
+        await update.message.reply_text(msg.amount_picker, reply_markup=amounts_kb(cfg))
 
     async def on_pay_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         q = update.callback_query
@@ -56,14 +58,14 @@ def register_payment_handlers(app, cfg: PaymentConfig):
         _, action = q.data.split(":", 1)
         if action in ("start", "custom"):
             ctx.user_data["input"] = "pay_amount"
-            await q.message.reply_text("Enter the amount (₹):")
+            await q.message.reply_text(msg.amount_prompt)
         else:
             await _start_payment(q.message, ctx, float(action), q.from_user.id)
 
     async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         text = update.message.text.strip()
-        if text == BTN_PAY:                           # reply-keyboard "💳 Pay"
-            await update.message.reply_text("Select amount or enter custom:", reply_markup=amounts_kb())
+        if text == pay_label:                         # reply-keyboard pay button
+            await update.message.reply_text(msg.amount_picker, reply_markup=amounts_kb(cfg))
             return
         # UTR submission takes priority if we're awaiting one.
         order_id = ctx.user_data.get("await_utr")
@@ -82,45 +84,40 @@ def register_payment_handlers(app, cfg: PaymentConfig):
     async def _verify_utr(message, ctx, order_id: str, text: str):
         utr = text.replace(" ", "")
         if not re.fullmatch(r"\d{12}", utr):          # trust boundary: validate before any lookup
-            await message.reply_text("❌ A UTR is 12 digits. Check your UPI app and resend.")
+            await message.reply_text(msg.bad_utr)
             return
         pay = get_payment(order_id)
         if not pay or pay["status"] != "PENDING":
             ctx.user_data.pop("await_utr", None)
-            await message.reply_text("⚠️ This order is no longer pending. Start a new /pay.")
+            await message.reply_text(msg.order_gone)
             return
         if not has_session(cfg) or not session_healthy():   # no session / known outage — queue
             queue_utr(order_id, utr)
             ctx.user_data.pop("await_utr", None)
-            await message.reply_text(
-                "🛠 Payment gateway is temporarily down. Your payment is *saved* — "
-                "I'll notify you here as soon as it's verified.", parse_mode="Markdown")
+            await message.reply_text(msg.gateway_down, parse_mode="Markdown")
             return
         try:
             match = find_by_utr(utr, pay["amount"], cfg)
         except CredentialsExpiredError:
-            # Queue it — the monitor verifies and notifies the user once the session is back.
-            queue_utr(order_id, utr)
+            queue_utr(order_id, utr)                  # monitor verifies + notifies on recovery
             ctx.user_data.pop("await_utr", None)
-            await message.reply_text(
-                "🛠 Payment gateway is temporarily down. Your payment is *saved* — "
-                "I'll notify you here as soon as it's verified.", parse_mode="Markdown")
+            await message.reply_text(msg.gateway_down, parse_mode="Markdown")
             return
         except Exception as e:
             log.error(f"UTR lookup failed: {e}")
             await message.reply_text("⚠️ Couldn't reach BharatPe. Try again in a moment.")
             return
         if not match:
-            await message.reply_text("❌ Not found yet (or amount/time mismatch). Wait a moment and resend.")
+            await message.reply_text(msg.not_found)
             return
         if not claim_utr(order_id, utr):              # guard #4: UNIQUE blocks reuse
-            await message.reply_text("❌ This UTR was already used for another order.")
+            await message.reply_text(msg.reused)
             return
         ctx.user_data.pop("await_utr", None)
         payer = match["payer_name"] or match["vpa"] or "N/A"
         await message.reply_text(
-            f"✅ *Payment Verified!*\n💰 ₹{match['amount']:.2f}\n🔗 `{utr}`\n👤 {payer}\n📝 `{order_id}`",
-            reply_markup=result_kb(), parse_mode="Markdown")
+            msg.verified.format(amount=match["amount"], utr=utr, payer=payer, order_id=order_id),
+            reply_markup=result_kb(cfg), parse_mode="Markdown")
         log.info(f"OK | {order_id} | UTR={utr}")
         await deliver(message.get_bot(), cfg,
                       {"user_id": pay["user_id"], "amount": pay["amount"], "order_id": order_id, "utr": utr})

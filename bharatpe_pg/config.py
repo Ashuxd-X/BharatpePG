@@ -75,5 +75,12 @@ class PaymentConfig:
     # product / add credits / send invite link" logic here.
     on_verified: Optional[Callable] = None
 
+    # ── UI customization (brand everything without editing plugin source) ─────
+    qr_theme: Optional[object] = None       # theme.QRTheme — colours/labels/fonts for the QR card
+    qr_renderer: Optional[Callable] = None  # your own (amount, order_id, cfg) -> BytesIO PNG; overrides the card
+    ui: Optional[object] = None             # theme.UIButtons — button labels + amount-grid layout
+    messages: Optional[object] = None       # theme.Messages — user-facing text templates
+    amount_presets: Optional[list] = None   # e.g. [50, 100, 250, 500]; None = default grid
+
     def __post_init__(self):
         self.bharatpe_api = self.bharatpe_api or f"{self.api_host}/api/v1/merchant/transactions"

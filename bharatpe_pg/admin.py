@@ -8,13 +8,16 @@ from .database import admin_recent, admin_search
 from .bharatpe import check_credentials, start_login, complete_login, has_session
 from .session_monitor import session_restored
 from .config import PaymentConfig
-from .keyboards import admin_kb, back_admin_kb, is_admin, BTN_ADMIN, BTN_LOGIN
+from .keyboards import admin_kb, back_admin_kb, is_admin
+from .theme import UIButtons
 
 log = logging.getLogger(__name__)
 
 
 def register_admin_handlers(app, cfg: PaymentConfig):
     """Register admin-only handlers (/admin, /login, /cancel), closed over cfg."""
+    _ui = getattr(cfg, "ui", None) or UIButtons()
+    BTN_ADMIN, BTN_LOGIN = _ui.menu_admin, _ui.menu_login
 
     def _admin(uid):
         return is_admin(uid, cfg.admin_ids)
