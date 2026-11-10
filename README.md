@@ -117,7 +117,11 @@ BharatPe login is **phone + OTP** (no password). An admin runs it once:
 
 1. Send `/login` → bot asks for the 10-digit mobile
 2. BharatPe texts the OTP → admin types it into the chat
-3. Bot stores the session and **auto-discovers the merchant ID** (BharatPe never shows it in the UI)
+3. Bot sends BharatPe's **image captcha** → admin types the characters shown (a human reads it; never auto-solved)
+   - wrong captcha? The bot sends a new image — **no new OTP needed**
+   - the captcha photo (and, where Telegram allows, your reply) is **auto-deleted** once used
+
+The bot then stores the session and **auto-discovers the merchant ID** (BharatPe never shows it in the UI).
 
 > The OTP is **entered manually every time** — the bot never reads SMS. If the session expires later, just `/login` again.
 
@@ -262,7 +266,7 @@ Everything you need after deploy is done **from inside Telegram, as an admin** �
 
 | Button / command | What it does |
 |---|---|
-| `/login` · 🔑 **Login** | Connect BharatPe: send mobile → enter the OTP from your phone. Merchant ID is auto-discovered. |
+| `/login` · 🔑 **Login** | Connect BharatPe: send mobile → enter the OTP → type the captcha shown in the image. Merchant ID is auto-discovered. |
 | 🔌 **Status** | Live connection check — 🟢 logged in · 🔴 not logged in / expired · 🟡 BharatPe unreachable. |
 | 💰 **Recent** | Last 10 orders with status + UTR. |
 | 🔍 **Search** | Look up a payment by order ID or UTR. |
@@ -377,6 +381,8 @@ python tests/test_utr_reuse.py        # one UTR can't pay two orders
 python tests/test_queue_drain.py      # outage queue verifies + delivers on recovery
 python tests/test_verify_and_hook.py  # verify_utr guards + on_verified fires once
 python tests/test_session_persist.py  # session survives a redeploy (no re-login)
+python tests/test_login_captcha.py    # OTP-step captcha fetch + verifyotp retry
+python tests/test_login_captcha.py   # login captcha fetch + verifyotp wiring
 ```
 
 ---

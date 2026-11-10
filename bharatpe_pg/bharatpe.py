@@ -149,19 +149,45 @@ def start_login(mobile: str, cfg) -> str:
     return d["data"]["uuid"]
 
 
-def complete_login(mobile: str, uuid: str, otp: str, cfg) -> str:
+class CaptchaRejected(RuntimeError):
+    """verifyotp refused the captcha. OTP + uuid stay valid — retry with a fresh captcha."""
+
+
+def fetch_login_captcha(cfg) -> bytes:
+    """GET the OTP-step image captcha (bound to the start_login session). A human reads it."""
+    s = _sessions.get(_key(cfg))
+    if s is None:
+        raise RuntimeError("no login in progress")
+    try:
+        r = s.get(cfg.auth_host + "/v1/api/load-captcha", params={"context": "otp"},
+                  headers={"X-Requested-With": "XMLHttpRequest", "Referer": cfg.auth_host + "/",
+                           "User-Agent": cfg.user_agent}, timeout=15)
+        ok = r.status_code == 200 and r.headers.get("content-type", "").startswith("image/") and bool(r.content)
+    except Exception:
+        ok = False
+    if not ok:
+        raise RuntimeError("could not load captcha")
+    return r.content
+
+
+def complete_login(mobile: str, uuid: str, otp: str, cfg, captcha: str | None = None) -> str:
     """POST verifyotp, store accessToken + login cookies as the active session."""
     if not re.fullmatch(r"\d{4,6}", otp):
         raise ValueError("otp must be 4-6 digits")
+    if not captcha or not captcha.strip():
+        raise ValueError("captcha required")
     s = _sessions.get(_key(cfg))
     if s is None:
         raise RuntimeError("no login in progress — call start_login first")
     r = s.post(cfg.auth_host + "/v1/api/user/verifyotp",
-               data={"mobile": mobile, "uuid": uuid, "otp": otp, "_token": s.csrf},
+               data={"mobile": mobile, "uuid": uuid, "otp": otp,
+                     "recaptcha_text": captcha.strip(), "_token": s.csrf},
                headers={"X-Requested-With": "XMLHttpRequest", "User-Agent": cfg.user_agent}, timeout=15)
     d = r.json()
     if not d.get("success") or "accessToken" not in d.get("data", {}):
-        raise RuntimeError(f"verifyotp failed: {d.get('message', d)}")
+        if d.get("message") == "ReCaptcha not verified":
+            raise CaptchaRejected("captcha not verified")
+        raise RuntimeError(f"verifyotp failed: {d.get('message', 'unknown')}")  # never echo the body
     # ponytail: rebuild the Cookie header from the jar — works because BharatPe
     # only needs XSRF-TOKEN + bharatpe_session, no path/domain nuance.
     cookie = "; ".join(f"{c.name}={c.value}" for c in s.cookies)

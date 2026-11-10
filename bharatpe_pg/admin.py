@@ -5,7 +5,8 @@ from telegram import Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
 from .database import admin_recent, admin_search
-from .bharatpe import check_credentials, start_login, complete_login, has_session
+from .bharatpe import (check_credentials, start_login, complete_login, has_session,
+                       fetch_login_captcha, CaptchaRejected)
 from .session_monitor import session_restored
 from .config import PaymentConfig
 from .keyboards import admin_kb, back_admin_kb, is_admin
@@ -22,6 +23,33 @@ def register_admin_handlers(app, cfg: PaymentConfig):
     def _admin(uid):
         return is_admin(uid, cfg.admin_ids)
 
+    def _forget_login(ctx):
+        for k in ("login_mobile", "login_uuid", "login_otp"):
+            ctx.user_data.pop(k, None)
+
+    async def _drop(bot, chat_id, msg_id):
+        try:                            # best effort: a failed delete never breaks login
+            await bot.delete_message(chat_id, msg_id)
+        except Exception:
+            pass
+
+    async def _clear_captcha(update, ctx, with_reply=False):
+        ref = ctx.user_data.pop("login_cap_msg", None)
+        if ref:
+            await _drop(ctx.bot, *ref)
+        if with_reply:                  # the admin's captcha-text message
+            await _drop(ctx.bot, update.message.chat_id, update.message.message_id)
+
+    async def _send_captcha(update, ctx):
+        try:
+            m = await update.message.reply_photo(fetch_login_captcha(cfg),
+                                                 caption="🧩 Step 3/3 — type the characters shown in the image.")
+        except Exception:               # generic: never echo response bodies
+            _forget_login(ctx)
+            await update.message.reply_text("❌ Login failed: could not load captcha. Try /login again."); return
+        ctx.user_data["login_cap_msg"] = (m.chat_id, m.message_id)
+        ctx.user_data["input"] = "login_captcha"
+
     async def cmd_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         if not _admin(update.effective_user.id):
             await update.message.reply_text("🚫 Unauthorized."); return
@@ -32,7 +60,7 @@ def register_admin_handlers(app, cfg: PaymentConfig):
             await update.message.reply_text("🚫 Unauthorized."); return
         ctx.user_data["input"] = "login_mobile"
         await update.message.reply_text(
-            "🔑 *BharatPe Login*\nStep 1/2 — send your 10-digit mobile number.\n/cancel to abort.",
+            "🔑 *BharatPe Login*\nStep 1/3 — send your 10-digit mobile number.\n/cancel to abort.",
             parse_mode="Markdown")
 
     async def on_admin_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -68,7 +96,7 @@ def register_admin_handlers(app, cfg: PaymentConfig):
         elif action == "login":
             ctx.user_data["input"] = "login_mobile"
             await q.message.reply_text(
-                "🔑 *BharatPe Login*\nStep 1/2 — send your 10-digit mobile number.\n/cancel to abort.",
+                "🔑 *BharatPe Login*\nStep 1/3 — send your 10-digit mobile number.\n/cancel to abort.",
                 parse_mode="Markdown")
 
     async def on_admin_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -82,7 +110,7 @@ def register_admin_handlers(app, cfg: PaymentConfig):
                 await cmd_login(update, ctx)
             return
         inp = ctx.user_data.get("input", "")
-        if inp not in ("login_mobile", "login_otp", "admin_search") or not _admin(update.effective_user.id):
+        if inp not in ("login_mobile", "login_otp", "login_captcha", "admin_search") or not _admin(update.effective_user.id):
             return
         ctx.user_data.pop("input", None)
 
@@ -93,13 +121,24 @@ def register_admin_handlers(app, cfg: PaymentConfig):
             except Exception as e:
                 await update.message.reply_text(f"❌ Could not request OTP: {e}"); return
             ctx.user_data["input"] = "login_otp"
-            await update.message.reply_text("📲 Step 2/2 — enter the OTP sent to your phone.")
+            await update.message.reply_text("📲 Step 2/3 — enter the OTP sent to your phone.")
 
         elif inp == "login_otp":
+            ctx.user_data["login_otp"] = text
+            await _send_captcha(update, ctx)
+
+        elif inp == "login_captcha":
+            await _clear_captcha(update, ctx, with_reply=True)
             try:
-                complete_login(ctx.user_data.pop("login_mobile"), ctx.user_data.pop("login_uuid"), text, cfg)
+                complete_login(ctx.user_data["login_mobile"], ctx.user_data["login_uuid"],
+                               ctx.user_data["login_otp"], cfg, captcha=text)
+            except CaptchaRejected:     # OTP + uuid still valid: fresh captcha only, no new OTP
+                await update.message.reply_text("⚠️ Wrong captcha. Try again with the new image.")
+                await _send_captcha(update, ctx); return
             except Exception as e:
+                _forget_login(ctx)
                 await update.message.reply_text(f"❌ Login failed: {e}"); return
+            _forget_login(ctx)
             session_restored()      # clear the expiry alert so the next outage warns again
             state = {"ok": "🟢 Connected", "expired": "🔴 Rejected", "unknown": "🟡 Unreachable"}[check_credentials(cfg)]
             await update.message.reply_text(f"✅ Logged in. BharatPe API: {state}",
@@ -118,7 +157,8 @@ def register_admin_handlers(app, cfg: PaymentConfig):
 
     async def cmd_cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         if ctx.user_data.pop("input", None):
-            ctx.user_data.pop("login_mobile", None); ctx.user_data.pop("login_uuid", None)
+            _forget_login(ctx)
+            await _clear_captcha(update, ctx)
             await update.message.reply_text("❌ Cancelled.", reply_markup=back_admin_kb())
 
     app.add_handler(CommandHandler(cfg.cmd_admin, cmd_admin))
